@@ -1,0 +1,13 @@
+-cp sample
+
+-lib heaps
+-lib heaps-gltf
+-lib hlsdl
+
+-hl sample.hl
+-main Main
+
+--macro include("hxd.fmt.gltf", true, null, null, true)
+--macro hxd.fmt.gltf.Macros.build()
+
+-debug
