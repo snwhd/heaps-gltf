@@ -346,8 +346,6 @@ class Parser {
                 var tangentsAcc = prim.attributes.get(TANGENT);
                 if (tangentsAcc != null) {
                     primData.accList[TAN] = tangentsAcc;
-                } else {
-                    // TODO
                 }
 
                 primData.indices = prim.indices;

@@ -71,10 +71,13 @@ class HMDOut {
                 genNormals = generateNormals(posAcc);
             }
 
-            if( !hasTangents )
-                throw "!! No tangents!!";
-
-            //var tangents = generateTangents(posAcc, normAcc, uvAcc);
+            if (!hasTangents) {
+                var tangents = generateTangents(posAcc, normAcc, uvAcc);
+                if (tangents == null) {
+                    throw "failed to generate tangents";
+                }
+                hasTangents = true;
+            }
 
 
             var norAcc = gltfData.accData[accList[NOR]];
