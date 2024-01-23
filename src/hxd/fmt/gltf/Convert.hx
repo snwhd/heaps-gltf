@@ -41,12 +41,4 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
 
     static var glbConv = hxd.fs.Convert.register(new ConvertGLTF2HMD(true));
     static var gltfConv = hxd.fs.Convert.register(new ConvertGLTF2HMD(false));
-    #if (sys || nodejs)
-    static var __ = hxd.fs.FileConverter.addConfig({
-        "fs.convert": {
-            "gltf" : { "convert" : "hmd", "priority" : -1 },
-        }
-    });
-    #end
-
 }
