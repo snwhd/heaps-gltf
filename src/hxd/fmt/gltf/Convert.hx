@@ -7,8 +7,8 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
 
     public function new(binary: Bool) {
         this.parseFunc = binary ?
-            cerastes.fmt.gltf.Parser.parseGLB :
-            cerastes.fmt.gltf.Parser.parseGLTF;
+            hxd.fmt.gltf.Parser.parseGLB :
+            hxd.fmt.gltf.Parser.parseGLTF;
         super(binary ? "glb" : "gltf", "hmd");
     }
 
@@ -30,7 +30,7 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
         }
         try {
             var gltfData = parseFunc(name, localPath, srcBytes);
-            var hmd = cerastes.fmt.gltf.HMDOut.emitHMD(name, relPath, gltfData);
+            var hmd = hxd.fmt.gltf.HMDOut.emitHMD(name, relPath, gltfData);
             var out = new haxe.io.BytesOutput();
             new hxd.fmt.hmd.Writer(out).write(hmd);
             save(out.getBytes());

@@ -210,8 +210,8 @@ class Parser {
             var uriStart = buf.uri != null ? buf.uri.substr(0,60) : "GLB buffer";
             if (buf.uri == null) {
                 // GLB binary chunk
-                Utils.assert(bufInd == 0);
-                Utils.assert(binChunk != null);
+                if (bufInd != 0) throw "buffer index != 0";
+                if (binChunk == null) throw "null binary chunk";
                 buffBytes = binChunk;
 
             } else if (base64Pat.match(uriStart)) {
@@ -394,7 +394,7 @@ class Parser {
             if (metalRough.baseColorFactor != null) {
                 var bc = metalRough.baseColorFactor;
                 if (bc.length < 3) throw "invalid base color";
-                var colVec = new h3d.Vector(bc[0], bc[1], bc[2], bc.length >= 4 ? bc[3] : 1.0);
+                var colVec = new h3d.Vector4(bc[0], bc[1], bc[2], bc.length >= 4 ? bc[3] : 1.0);
                 matData.color = colVec.toColor();
             }
             if (metalRough.baseColorTexture != null) {

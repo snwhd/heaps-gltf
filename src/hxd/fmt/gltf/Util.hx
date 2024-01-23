@@ -44,7 +44,7 @@ class Util {
                 if (pos >= buffAcc.maxPos) throw "out of bounds position";
                 return buff.getInt32(pos);
         }
-        Utils.error("Invalid compsize");
+        throw "Invalid compsize";
         return 0;
 
     }

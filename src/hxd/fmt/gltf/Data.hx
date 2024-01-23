@@ -2,6 +2,8 @@ package hxd.fmt.gltf;
 
 import h3d.Quat;
 
+typedef GeometryFormat = hxd.BufferFormat.BufferInput
+
 enum abstract AccessorInd(Int) to Int {
     var POS = 0;
     var NOR;
