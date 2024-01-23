@@ -1,12 +1,10 @@
-package cerastes.fmt.gltf;
+package hxd.fmt.gltf;
 
 import h3d.Quat;
 import h3d.Vector;
 import h3d.col.Bounds;
 import hxd.fmt.hmd.Data;
 
-import cerastes.fmt.gltf.Data;
-import cerastes.Utils as Debug;
 
 class HMDOut {
 
@@ -54,10 +52,12 @@ class HMDOut {
 			var hasIndices = accList[INDICES] != -1;
 			var hasTangents = accList[TAN] != -1;
 
-			// We do not support generating normals on models that use indices (yet)
-			Debug.assert(hasNorm || !hasIndices);
-
-			Debug.assert(hasJoints == hasWeights);
+            if (!hasNorm && hasIndices) {
+                throw "generating normals on indexed models is not supported";
+            }
+            if (hasJoints != hasWeights) {
+                throw "joints/weights mismatch";
+            }
 
 			var posAcc = gltfData.accData[accList[POS]];
 			var normAcc = gltfData.accData[accList[NOR]];
@@ -129,7 +129,7 @@ class HMDOut {
 				if (hasJoints) {
 					for (jInd in 0...4) {
 						var joint = Util.getInt(gltfData, jointAcc, i, jInd);
-						Debug.assert(joint >= 0);
+                        if (joint < 0) throw "negative joint index";
 						outBytes.writeByte(joint);
 					}
 					//outBytes.writeByte(0);
@@ -137,7 +137,7 @@ class HMDOut {
 				if (hasWeights) {
 					for (wInd in 0...4) {
 						var wVal = Util.getFloat(gltfData, weightAcc, i, wInd);
-						Debug.assert(!Math.isNaN(wVal));
+						if (Math.isNaN(wVal)) throw "invalid weight (NaN)";
 
 						outBytes.writeFloat(wVal);
 					}
@@ -296,7 +296,7 @@ class HMDOut {
 		for (i in 0...gltfData.nodes.length) {
 			// Sanity check
 			var node = gltfData.nodes[i];
-			Debug.assert(node.nodeInd == i);
+            if (node.nodeInd != i) throw 'invalid nodex index ${node.nodeInd} != $i';
 			if (node.isJoint)
 				continue;
 
@@ -385,7 +385,7 @@ class HMDOut {
 							curve.rotValues[f*4+2],
 							curve.rotValues[f*4+3]);
 						var qLength = quat.length();
-						Debug.assert(Math.abs(qLength-1.0) < 0.2);
+						if (Math.abs(qLength-1.0) >= 0.2) throw "invalid animation curve";
 						quat.normalize();
 						if (quat.w < 0) {
 							quat.w*= -1;
@@ -500,7 +500,7 @@ class HMDOut {
 			// Ensure this matrix converted to a 'Position' correctly
 			var testMat = sj.transpos.toMatrix();
 			//var testPos = Position.fromMatrix(testMat);
-			//Debug.assert(Util.matNear(invBindMat, testMat));
+			//if (!Util.matNear(invBindMat, testMat)) throw "";
 
 			ret.joints.push(sj);
 		}
@@ -510,7 +510,7 @@ class HMDOut {
 	}
 
 	function generateNormals(posAcc:BuffAccess) : Array<Vector> {
-		Debug.assert(posAcc.count % 3 == 0);
+		if (posAcc.count % 3 != 0) throw "bad position accessor length";
 		var numTris = Std.int(posAcc.count / 3);
 		var ret = [];
 		for (i in 0...numTris) {
@@ -566,8 +566,8 @@ class HMDOut {
 	{
 		/*
 		#if (hl && !hl_disable_mikkt && (haxe_ver >= "4.0"))
-		Debug.assert(posAcc.count % 3 == 0);
-		Debug.assert(normAcc.count % 3 == 0);
+		if (posAcc.count % 3 != 0) throw "";
+		if (normAcc.count % 3 != 0) throw "";
 
 
 

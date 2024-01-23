@@ -1,4 +1,4 @@
-package cerastes.fmt.gltf;
+package hxd.fmt.gltf;
 
 import h3d.Quat;
 

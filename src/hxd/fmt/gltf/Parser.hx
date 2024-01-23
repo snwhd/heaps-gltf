@@ -1,13 +1,10 @@
-package cerastes.fmt.gltf;
+package hxd.fmt.gltf;
 
 import haxe.crypto.Base64;
 import h3d.Quat;
 import h3d.Vector;
 import haxe.Json;
-import cerastes.fmt.gltf.Data;
-import cerastes.fmt.gltf.Util;
 
-import cerastes.Utils as Debug;
 
 private enum abstract ComponentType(Int) {
 	var BYTE = 5120;
@@ -241,9 +238,13 @@ class Parser {
 	function checkAccessor(accInd:Int, ?expComp, ?expType) {
 		var accessor = srcData.accessors[accInd];
 		if (expComp != null)
-			Debug.assert(accessor.componentType == expComp);
+			if (accessor.componentType != expComp) {
+                throw 'accessor component mismatch ${accessor.componentType} expected $expComp';
+            }
 		if (expType != null)
-			Debug.assert(accessor.type == expType);
+			if (accessor.type != expType);
+                throw 'accessor type mismatch ${accessor.type} expected $expType';
+            }
 	}
 
 	function fillBuffAccess(accessor:Accessor):BuffAccess {
@@ -268,7 +269,9 @@ class Parser {
 		var maxPos = bufferView.byteLength + bufferView.byteOffset;
 
 		// Check the buffer view length logic
-		Debug.assert( (accessor.byteOffset+stride*(accessor.count-1)+elemSize) <= bufferView.byteLength);
+		if ((accessor.byteOffset+stride*(accessor.count-1)+elemSize) > bufferView.byteLength) {
+            throw "out of bounds bufferView access";
+        }
 
 		return {
 			bufferInd: bufferView.buffer,
@@ -299,14 +302,18 @@ class Parser {
 					primData.norm = norAcc;
 					checkAccessor(norAcc, FLOAT, VEC3);
 					primData.accList[NOR] = norAcc;
-					Debug.assert(srcData.accessors[norAcc].count >= vertCount);
+					if (srcData.accessors[norAcc].count < vertCount) {
+                        throw "nromals accessor too small";
+                    }
 				}
 				var texAcc = prim.attributes.get(TEXCOORD_0);
 				if (texAcc != null) {
 					primData.texCoord = texAcc;
 					checkAccessor(texAcc, FLOAT, VEC2);
 					primData.accList[TEX] = texAcc;
-					Debug.assert(srcData.accessors[texAcc].count >= vertCount);
+					if (srcData.accessors[texAcc].count < vertCount) {
+                        throw "texture accessor too small";
+                    }
 				}
 				var jointsAcc = prim.attributes.get(JOINTS_0);
 				if (jointsAcc != null) {
@@ -315,17 +322,23 @@ class Parser {
 					// have a good assert func here yet
 					//checkAccessor(jointsAcc, UNSIGNED_SHORT, VEC4);
 					primData.accList[JOINTS] = jointsAcc;
-					Debug.assert(srcData.accessors[jointsAcc].count >= vertCount);
+					if (srcData.accessors[jointsAcc].count < vertCount) {
+                        throw "joints accessor too small";
+                    }
 				}
 				var weightsAcc = prim.attributes.get(WEIGHTS_0);
 				if (weightsAcc != null) {
 					primData.weights = weightsAcc;
 					checkAccessor(weightsAcc, FLOAT, VEC4);
 					primData.accList[WEIGHTS] = weightsAcc;
-					Debug.assert(srcData.accessors[weightsAcc].count >= vertCount);
+					if (srcData.accessors[weightsAcc].count < vertCount) {
+                        throw "weights accessor too small";
+                    }
 				}
 				// Assert we have both or neither of joints and weights
-				Debug.assert((weightsAcc == null) == (jointsAcc == null));
+				if ((weightsAcc == null) != (jointsAcc == null)) {
+                    throw "weights / joints mismatch"
+                }
 
 				primData.indices = prim.indices;
 				if (primData.indices != null) {
@@ -353,7 +366,7 @@ class Parser {
 			for (i in 0...skinData.joints.length) {
 				var nodeId = skinData.joints[i];
 				var nodeName = srcData.nodes[nodeId].name;
-				Debug.assert(nodeName != null);
+				if (nodeName == null) throw "null node name";
 				if (skinData.jointNameMap[nodeName] != null) {
 					throw 'Skin node name is used twice: $nodeName';
 				}
@@ -370,7 +383,7 @@ class Parser {
 			var metalRough = mat.pbrMetallicRoughness;
 			if (metalRough.baseColorFactor != null) {
 				var bc = metalRough.baseColorFactor;
-				Debug.assert(bc.length >= 3);
+				if (bc.length < 3) throw "invalid base color";
 				var colVec = new h3d.Vector(bc[0], bc[1], bc[2], bc.length >= 4 ? bc[3] : 1.0);
 				matData.color = colVec.toColor();
 			}
@@ -378,7 +391,7 @@ class Parser {
 				var bc = metalRough.baseColorTexture;
 				var texInd = bc.index;
 				var texCoord = bc.texCoord != null ? bc.texCoord : 0;
-				Debug.assert(texCoord == 0, "Only texcoord 0 supported for now");
+				if (texCoord != 0) throw "Only texcoord 0 supported for now";
 
 				var tex = srcData.textures[texInd];
 				var imageInd = tex.source;
@@ -396,7 +409,7 @@ class Parser {
 					var bufView = srcData.bufferViews[image.bufferView];
 					matData.colorTex = Buffer(bufView.buffer, bufView.byteOffset, bufView.byteLength,ext);
 				} else {
-					Debug.assert(false, "Image must have either a bufferView or URI");
+					throw "Image must have either a bufferView or URI";
 				}
 			}
 
@@ -420,7 +433,9 @@ class Parser {
 			if (nextVal > time) {
 				break;
 			}
-			Debug.assert(nextVal >= lastVal);
+			if (nextVal < lastVal) {
+                throw "nextVal decremented";
+            }
 			lastVal = nextVal;
 			nextInd++;
 		}
@@ -430,9 +445,9 @@ class Parser {
 			return { ind0: lastInd, weight: 1.0, ind1:-1};
 		}
 
-		Debug.assert(nextVal >= lastVal);
-		Debug.assert(lastVal <= time);
-		Debug.assert(time <= nextVal);
+		if (nextVal < lastVal) throw "nextVal decremented";
+		if (lastVal > time) throw "lastVal too large";
+		if (time > nextVal) throw "nextVal too small";
 		if (nextVal == lastVal) {
 			//Divide by zero guard
 			return { ind0: lastInd, weight: 1.0, ind1:-1};
@@ -471,7 +486,9 @@ class Parser {
 				var samp = anim.samplers[sampId];
 				var inAcc = outData.accData[samp.input];
 				var outAcc = outData.accData[samp.output];
-				Debug.assert(outAcc.numComps == numComps);
+				if (outAcc.numComps != numComps) {
+                    throw "numComps mismatch";
+                }
 				var values = new Array();
 				values.resize(numFrames*outAcc.numComps);
 				var vals0 = new Array();
@@ -498,7 +515,7 @@ class Parser {
 							values[f*numComps+i] = vals0[i]*samp.weight + vals1[i]*(1.0-samp.weight);
 						}
 					} else {
-						Debug.assert(numComps == 4);
+						if (numComps != 4) throw "numComps != 4";
 						// Quaternion weirdness
 						var q0 = new Quat(vals0[0], vals0[1], vals0[2], vals0[3]);
 						var q1 = new Quat(vals1[0], vals1[1], vals1[2], vals1[3]);
@@ -535,9 +552,9 @@ class Parser {
 				var numTrans = Lambda.count(channels, transPred);
 				var numRot = Lambda.count(channels, rotPred);
 				var numScale = Lambda.count(channels, scalePred);
-				Debug.assert(numTrans <= 1);
-				Debug.assert(numRot <= 1);
-				Debug.assert(numScale <= 1);
+				if (numTrans > 1) throw "multiple translations";
+				if (numRot > 1) throw "multiple rotations";
+				if (numScale > 1) throw "multiple scales";
 
 				var curve = new AnimationCurve();
 				curve.targetNode = nodeId;
@@ -662,10 +679,10 @@ class Parser {
 		}
 		for (node in outData.nodes) {
 			// For now do not allow joints to have meshes
-			Debug.assert(!node.isJoint || !node.hasChildMesh);
+			if (node.isJoint && node.hasChildMesh) throw "joints with meshes not supported";
 			if (node.isJoint) {
 				for (c in node.children) {
-					Debug.assert(c.isJoint);
+					if (!c.isJoint) throw "joint child is not joint";
 				}
 			}
 		}
@@ -723,18 +740,18 @@ class Parser {
 	public static function parseGLB(name, localDir, file:haxe.io.Bytes) {
 		// Read header
 		var magic = file.getString(0, 4);
-		Debug.assert(magic == "glTF");
+		if (magic != "glTF") throw "invalid magic, not a gltf file?";
 		var fileVer = file.getInt32(4);
-		Debug.assert(fileVer == 2);
+		if (fileVer != 2) throw "unsupported version (expected 2)";
 		var fileLen = file.getInt32(8);
-		Debug.assert(fileLen <= file.length);
+		if (fileLen > file.length) throw "file length mismatch";
 
 		var jsonChunkStart = 12;
 		// Read the JSON chunk
 		var jsonChunkLen = file.getInt32(jsonChunkStart);
-		Debug.assert(fileLen >= jsonChunkStart+8+jsonChunkLen);
+		if (fileLen < jsonChunkStart+8+jsonChunkLen) throw "file length / json length mismatch";
 		var jsonType = file.getString(jsonChunkStart+4,4);
-		Debug.assert(jsonType == "JSON");
+		if (jsonType != "JSON") throw "json type mismatch";
 		var jsonBytes = file.sub(jsonChunkStart+8,jsonChunkLen);
 
 		// Optional binary chunk
@@ -742,9 +759,9 @@ class Parser {
 		var binBytes = null;
 		if (binChunkStart<fileLen) {
 			var binChunkLen = file.getInt32(binChunkStart);
-			Debug.assert(fileLen >= binChunkStart+8+binChunkLen);
+			if (fileLen < binChunkStart+8+binChunkLen) throw "file length / binary length mismatch";
 			var binType = file.getString(binChunkStart+4,3);
-			Debug.assert(binType == "BIN");
+			if (binType != "BIN") throw "binary type mismatch";
 			binBytes = file.sub(binChunkStart+8,binChunkLen);
 		}
 		var parser = new Parser(name, localDir, jsonBytes, binBytes);

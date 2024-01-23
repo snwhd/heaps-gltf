@@ -1,7 +1,5 @@
-package cerastes.fmt.gltf;
+package hxd.fmt.gltf;
 
-import cerastes.fmt.gltf.Data;
-import cerastes.Utils as Debug;
 
 class Util {
 
@@ -9,25 +7,25 @@ class Util {
 	// entry (eg: vertex) and component (eg: x)
 	public inline static function getFloat(data: Data, buffAcc:BuffAccess, entry:Int, comp:Int):Float {
 		var buff = data.bufferData[buffAcc.bufferInd];
-		Debug.assert(buffAcc.compSize == 4);
+		if (buffAcc.compSize != 4) throw "expected 4 bytes for float";
 		var pos = buffAcc.offset + (entry * buffAcc.stride) + comp * 4;
-		Debug.assert(pos < buffAcc.maxPos);
+		if (pos >= buffAcc.maxPos) throw "out of bounds position";
 		return buff.getFloat(pos);
 	}
 
 	public static function getUShort(data: Data, buffAcc:BuffAccess, entry:Int, comp:Int):Int {
 		var buff = data.bufferData[buffAcc.bufferInd];
-		Debug.assert(buffAcc.compSize == 2);
+		if (buffAcc.compSize != 2) throw "expected 2 bytes for short";
 		var pos = buffAcc.offset + (entry * buffAcc.stride) + comp * 2;
-		Debug.assert(pos < buffAcc.maxPos);
+		if (pos >= buffAcc.maxPos) throw "out of bounds position";
 		return buff.getUInt16(pos);
 	}
 
 	public static function getByte(data: Data, buffAcc:BuffAccess, entry:Int, comp:Int):Int {
 		var buff = data.bufferData[buffAcc.bufferInd];
-		Debug.assert(buffAcc.compSize == 1);
+		if (buffAcc.compSize != 1) throw "expected 1 byte for byte";
 		var pos = buffAcc.offset + (entry * buffAcc.stride) + comp;
-		Debug.assert(pos < buffAcc.maxPos);
+		if (pos >= buffAcc.maxPos) throw "out of bounds position";
 		return buff.get(pos);
 	}
 
@@ -41,7 +39,7 @@ class Util {
 			case 4:
 				var buff = data.bufferData[buffAcc.bufferInd];
 				var pos = buffAcc.offset + (entry * buffAcc.stride) + comp * 4;
-				Debug.assert(pos < buffAcc.maxPos);
+				if (pos >= buffAcc.maxPos) throw "out of bounds position";
 				return buff.getInt32(pos);
 		}
 		Utils.error("Invalid compsize");
@@ -81,7 +79,7 @@ class Util {
 	public static inline function getIndex(data: Data, buffAcc:BuffAccess, entry:Int):Int {
 		var buff = data.bufferData[buffAcc.bufferInd];
 		var pos = buffAcc.offset + (entry * buffAcc.stride);
-		Debug.assert(pos < buffAcc.maxPos);
+		if (pos >= buffAcc.maxPos) throw "out of bounds position";
 		switch (buffAcc.compSize) {
 			case 1:
 				return buff.get(pos);

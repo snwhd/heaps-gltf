@@ -1,6 +1,4 @@
-package cerastes.fmt.gltf;
-
-import cerastes.Utils as Debug;
+package hxd.fmt.gltf;
 
 typedef MapVal = { ints:Array<Int>, index:Int};
 
@@ -23,7 +21,7 @@ class SeqIntMap {
 
     static inline function hashList(ints: Array<Int>) {
         // If this assert triggers, add more primes to the list
-        Debug.assert(ints.length <= primeList.length);
+        if (ints.length > primeList.length) throw "need more primes";
         var hash = 0;
         for (i in 0...ints.length) {
             hash += ints[i] * primeList[i];
@@ -62,7 +60,7 @@ class SeqIntMap {
             colls++;
             pos++;
         }
-        Debug.assert(false, "Logic Error");
+        throw "Logic Error";
         return -1;
      }
      public function get_count() {
@@ -70,7 +68,7 @@ class SeqIntMap {
      }
      // reverse of 'add' function
      public function getList(ind:Int): Array<Int> {
-         Debug.assert(ind < invMap.length);
+         if (ind >= invMap.length) throw "bad index";
          var pos = invMap[ind];
          return map[pos].ints;
      }
