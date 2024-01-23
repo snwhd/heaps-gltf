@@ -9,7 +9,7 @@ class Macros {
 
     #if macro
     public static function build() {
-        Config.extends["glb,gltf"] = "hxd.res.Model";
+        Config.extensions["glb,gltf"] = "hxd.res.Model";
     }
     #end
 
