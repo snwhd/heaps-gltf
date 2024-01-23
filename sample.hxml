@@ -7,7 +7,6 @@
 -hl sample.hl
 -main Main
 
---macro include("hxd.fmt.gltf", true, null, null, true)
 --macro hxd.fmt.gltf.Macros.build()
 
 -debug

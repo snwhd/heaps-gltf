@@ -186,22 +186,27 @@ class HMDOut {
                 geoMaterials.push(geoMats);
                 geo.props = null;
                 geo.vertexCount = posAcc.count;
-                geo.vertexStride = 11;
 
-                geo.vertexFormat = [];
-                geo.vertexFormat.push(new GeometryFormat("position", DVec3));
-                geo.vertexFormat.push(new GeometryFormat("normal", DVec3));
-                geo.vertexFormat.push(new GeometryFormat("tangent", DVec3));
-                geo.vertexFormat.push(new GeometryFormat("uv", DVec2));
-                geo.vertexPosition = dataPos[accSet];
-                geo.bounds = bounds[accSet];
+                var stride = 11;
+                var format = [
+                    new GeometryFormat("position", DVec3),
+                    new GeometryFormat("normal", DVec3),
+                    new GeometryFormat("tangent", DVec3),
+                    new GeometryFormat("uv", DVec2),
+                ];
 
                 if (accessors[3] != -1) {
                     // Has joint and weight data
-                    geo.vertexStride += 5;
-                    geo.vertexFormat.push(new GeometryFormat("indexes", DBytes4));
-                    geo.vertexFormat.push(new GeometryFormat("weights", DVec4));
+                    stride += 5;
+                    format.push(new GeometryFormat("indexes", DBytes4));
+                    format.push(new GeometryFormat("weights", DVec4));
                 }
+
+                geo.vertexFormat = hxd.BufferFormat.make(format);
+                if (geo.vertexFormat.stride != stride) throw "unexpected stride";
+
+                geo.vertexPosition = dataPos[accSet];
+                geo.bounds = bounds[accSet];
 
                 var mesh = gltfData.meshes[meshInd];
 
