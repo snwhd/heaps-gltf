@@ -6,7 +6,7 @@
   "description": "GLTF parser and HMD conversion for heaps",
   "version": "0.0.1",
   "classPath": "src/",
-  "contributors": ["nspitko"],
+  "contributors": ["nspitko", "snwhd"],
   "dependencies": {
     "heaps": ""
   }
