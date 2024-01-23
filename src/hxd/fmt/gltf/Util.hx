@@ -1,5 +1,7 @@
 package hxd.fmt.gltf;
 
+import hxd.fmt.gltf.Data;
+
 
 class Util {
 

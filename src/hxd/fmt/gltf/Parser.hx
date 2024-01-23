@@ -5,6 +5,8 @@ import h3d.Quat;
 import h3d.Vector;
 import haxe.Json;
 
+import hxd.fmt.gltf.Data;
+
 
 private enum abstract ComponentType(Int) {
     var BYTE = 5120;
@@ -241,10 +243,11 @@ class Parser {
             if (accessor.componentType != expComp) {
                 throw 'accessor component mismatch ${accessor.componentType} expected $expComp';
             }
-        if (expType != null)
-            if (accessor.type != expType);
+        if (expType != null) {
+            if (accessor.type != expType) {
                 throw 'accessor type mismatch ${accessor.type} expected $expType';
             }
+        }
     }
 
     function fillBuffAccess(accessor:Accessor):BuffAccess {
@@ -337,7 +340,7 @@ class Parser {
                 }
                 // Assert we have both or neither of joints and weights
                 if ((weightsAcc == null) != (jointsAcc == null)) {
-                    throw "weights / joints mismatch"
+                    throw "weights / joints mismatch";
                 }
 
                 var tangentsAcc = prim.attributes.get(TANGENT);
