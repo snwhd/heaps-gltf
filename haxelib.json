@@ -1,0 +1,13 @@
+{
+  "name": "heaps-gltf",
+  "url" : "https://github.com/snwhd/heaps-gltf/",
+  "license": "MIT",
+  "tags": ["heaps", "gltf"],
+  "description": "GLTF parser and HMD conversion for heaps",
+  "version": "0.0.1",
+  "classPath": "src/",
+  "contributors": ["nspitko"],
+  "dependencies": {
+    "heaps": ""
+  }
+}
