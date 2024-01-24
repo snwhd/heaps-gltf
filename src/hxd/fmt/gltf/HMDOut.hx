@@ -83,7 +83,6 @@ class HMDOut {
                         indices.push(Util.getIndex(this.data, indAcc, i));
                     }
                 } else {
-                    if (posAcc.count != normAcc.count) throw "ASDF";
                     for (i in 0 ... posAcc.count) {
                         indices.push(i);
                     }
