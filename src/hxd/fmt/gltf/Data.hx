@@ -97,6 +97,17 @@ typedef SampleInterp = {
 }
 
 
+enum abstract PrimitiveMode(Int) from Int to Int {
+    var POINTS = 0;
+    var LINE_STRIPS;
+    var LINE_LOOPS;
+    var LINES;
+    var TRIANGLES; // default
+    var TRIANGLE_STRIPS;
+    var TRIANGLE_FANS;
+}
+
+
 class PrimitiveData {
     public var matInd: Null<Int>;
 
@@ -108,6 +119,8 @@ class PrimitiveData {
     public var weights: Null<Int>;
     public var indices: Null<Int>;
     public var accList: Array<Int>;
+
+    public var mode: PrimitiveMode = TRIANGLES;
 
     public function new() {
     }

@@ -81,6 +81,7 @@ private typedef Primitive = {
     attributes: haxe.DynamicAccess<Int>,
     indices: Null<Int>,
     material: Null<Int>,
+    mode: Null<Int>,
 }
 
 
@@ -330,6 +331,9 @@ class Parser {
                 var primData = new PrimitiveData();
                 primData.accList = [-1, -1, -1, -1, -1, -1, -1];
                 primData.matInd = prim.material;
+                if (prim.mode != null) {
+                    primData.mode = prim.mode;
+                }
                 var posAcc = prim.attributes.get(POSITION);
                 var vertCount = srcData.accessors[posAcc].count;
                 primData.pos = posAcc;
