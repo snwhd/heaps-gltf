@@ -1,8 +1,12 @@
 package hxd.fmt.gltf;
 
+
 typedef MapVal = { ints:Array<Int>, index:Int};
 
+
 class SeqIntMap {
+
+    static final PRIME_LIST = [13,29,41,59,73,101,113];
 
     var map: Map<Int, MapVal >;
     var invMap: Array<Int>;
@@ -12,23 +16,26 @@ class SeqIntMap {
 
     public var count(get, never): Int;
 
-    static final primeList = [13,29,41,59,73,101,113];
+    public function get_count() {
+        return invMap.length;
+    }
 
     public function new() {
         map = new Map();
         invMap = [];
     }
 
-    static inline function hashList(ints: Array<Int>) {
+    private static inline function hashList(ints: Array<Int>) {
         // If this assert triggers, add more primes to the list
-        if (ints.length > primeList.length) throw "need more primes";
+        if (ints.length > PRIME_LIST.length) throw "need more primes";
         var hash = 0;
-        for (i in 0...ints.length) {
-            hash += ints[i] * primeList[i];
+        for (i in 0 ... ints.length) {
+            hash += ints[i] * PRIME_LIST[i];
         }
         return hash;
     }
-    inline function listSame(a: Array<Int>, b: Array<Int>) {
+
+    private inline function listSame(a: Array<Int>, b: Array<Int>) {
         var res = true;
         if (a.length != b.length) res = false;
         else {
@@ -53,7 +60,7 @@ class SeqIntMap {
                 misses++;
                 return ind;
             }
-            if (listSame(ints, val.ints)) {
+            if (this.listSame(ints, val.ints)) {
                 hits++;
                 return val.index;
             }
@@ -63,17 +70,15 @@ class SeqIntMap {
         throw "Logic Error";
         return -1;
      }
-     public function get_count() {
-         return invMap.length;
-     }
-     // reverse of 'add' function
-     public function getList(ind:Int): Array<Int> {
-         if (ind >= invMap.length) throw "bad index";
-         var pos = invMap[ind];
-         return map[pos].ints;
-     }
 
-     public function debugInfo() {
-         trace('Hits: $hits Misses: $misses Collision: $colls');
-     }
+    // reverse of 'add' function
+    public function getList(ind:Int): Array<Int> {
+        if (ind >= invMap.length) throw "bad index";
+        var pos = invMap[ind];
+        return map[pos].ints;
+    }
+
+    public function debugInfo() {
+        trace('Hits: $hits Misses: $misses Collision: $colls');
+    }
 }
