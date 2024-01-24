@@ -2,7 +2,9 @@ package hxd.fmt.gltf;
 
 import h3d.Quat;
 
+
 typedef GeometryFormat = hxd.BufferFormat.BufferInput
+
 
 enum abstract AccessorInd(Int) to Int {
     var POS = 0;
@@ -14,35 +16,44 @@ enum abstract AccessorInd(Int) to Int {
     var TAN;
 }
 
-class MeshData {
-    public var primitives:Array<PrimitiveData> = [];
-    public var name:String;
-    public var uses:Int = 0;
 
-    public function new() {}
+class MeshData {
+    public var primitives: Array<PrimitiveData> = [];
+    public var name: String;
+    public var uses: Int = 0;
+
+    public function new() {
+    }
 }
+
 
 class SkinData {
     public var invBindMatAcc: Int;
     public var skeleton: Null<Int>;
     public var joints: Array<Int>;
     public var jointNameMap: Map<String, Int>;
-    public function new() {}
+
+    public function new() {
+    }
 }
+
 
 enum TextureData {
-    File(fileName:String);
-    Buffer(buff:Int,pos:Int,len:Int,ext:String);
+    File(fileName: String);
+    Buffer(buff: Int, pos: Int, len: Int, ext: String);
 }
+
 
 class MaterialData {
-    public var color:Null<Int>;
-    public var colorTex:TextureData;
+    public var color: Null<Int>;
+    public var colorTex: TextureData;
 
-    public var name:String;
+    public var name: String;
 
-    public function new() {}
+    public function new() {
+    }
 }
+
 
 class NodeData {
     public var nodeInd: Int;
@@ -63,38 +74,43 @@ class NodeData {
     public var isAnimated: Bool = false;
     public var animCurves: Array<AnimationCurve> = [];
 
-    public function new() {}
+    public function new() {
+    }
 }
+
 
 typedef BuffAccess = {
-    bufferInd:Int,
-    offset:Int,
-    stride:Int,
-    compSize:Int,
-    numComps:Int,
-    count:Int,
-    maxPos:Int,
+    bufferInd: Int,
+    offset: Int,
+    stride: Int,
+    compSize: Int,
+    numComps: Int,
+    count: Int,
+    maxPos: Int,
 }
+
 
 typedef SampleInterp = {
-    ind0:Int,
-    ind1:Int,
-    weight:Float,
+    ind0: Int,
+    ind1: Int,
+    weight: Float,
 }
 
+
 class PrimitiveData {
-    public var matInd:Null<Int>;
+    public var matInd: Null<Int>;
 
-    public var pos:Int;
-    public var norm:Null<Int>;
-    public var tan:Null<Int>;
-    public var texCoord:Null<Int>;
-    public var joints:Null<Int>;
-    public var weights:Null<Int>;
-    public var indices:Null<Int>;
-    public var accList:Array<Int>;
+    public var pos: Int;
+    public var norm: Null<Int>;
+    public var tan: Null<Int>;
+    public var texCoord: Null<Int>;
+    public var joints: Null<Int>;
+    public var weights: Null<Int>;
+    public var indices: Null<Int>;
+    public var accList: Array<Int>;
 
-    public function new() {}
+    public function new() {
+    }
 }
 
 
@@ -105,8 +121,10 @@ class AnimationCurve {
     public var targetName: String;
     public var targetNode: Int;
 
-    public function new() {}
+    public function new() {
+    }
 }
+
 
 class AnimationData {
     public var length: Float;
@@ -114,8 +132,10 @@ class AnimationData {
     public var curves: Array<AnimationCurve>;
     public var name: String;
 
-    public function new() {}
+    public function new() {
+    }
 }
+
 
 class Data {
     public static final SAMPLE_RATE = 60.0;
@@ -128,6 +148,8 @@ class Data {
     public var nodes: Array<NodeData> = []; // The data for the nodes in the same order as the source
     public var skins: Array<SkinData> = [];
     public var animations: Array<AnimationData> = [];
-    public function new() {}
+
+    public function new() {
+    }
 }
 

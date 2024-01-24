@@ -163,14 +163,14 @@ private typedef GLTFSrcData = {
 class Parser {
     public var srcData:GLTFSrcData;
     public var name:String;
-    public var localDir:String;
+    public var directory:String;
     public var binChunk:haxe.io.Bytes;
 
     public var outData: Data;
 
-    public function new(name, localDir, file:haxe.io.Bytes, ?binChunk:haxe.io.Bytes) {
+    public function new(name, directory, file:haxe.io.Bytes, ?binChunk:haxe.io.Bytes) {
         this.name = name;
-        this.localDir = localDir;
+        this.directory = directory;
         this.binChunk = binChunk;
 
         this.srcData = Json.parse(file.getString(0, file.length));
@@ -220,7 +220,7 @@ class Parser {
                 buffBytes = Base64.decode(buf.uri.substr(dataStart));
             } else {
                 #if sys
-                buffBytes = sys.io.File.getBytes(localDir + buf.uri);
+                buffBytes = sys.io.File.getBytes(haxe.io.Path.join([directory, buf.uri]));
                 #else
                 throw "FIXME";
                 #end
@@ -740,12 +740,12 @@ class Parser {
         return outData;
     }
 
-    public static function parseGLTF(name, localDir, file:haxe.io.Bytes) {
-        var parser = new Parser(name, localDir, file);
+    public static function parseGLTF(name, directory, file:haxe.io.Bytes) {
+        var parser = new Parser(name, directory, file);
         return parser.getData();
     }
 
-    public static function parseGLB(name, localDir, file:haxe.io.Bytes) {
+    public static function parseGLB(name, directory, file:haxe.io.Bytes) {
         // Read header
         var magic = file.getString(0, 4);
         if (magic != "glTF") throw "invalid magic, not a gltf file?";
@@ -772,7 +772,7 @@ class Parser {
             if (binType != "BIN") throw "binary type mismatch";
             binBytes = file.sub(binChunkStart+8,binChunkLen);
         }
-        var parser = new Parser(name, localDir, jsonBytes, binBytes);
+        var parser = new Parser(name, directory, jsonBytes, binBytes);
         return parser.getData();
     }
 }

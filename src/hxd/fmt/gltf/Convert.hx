@@ -1,9 +1,13 @@
 package hxd.fmt.gltf;
 
+
+typedef ParseFunction = (String, String, haxe.io.Bytes) -> hxd.fmt.gltf.Data;
+
+
 @:keep
 class ConvertGLTF2HMD extends hxd.fs.Convert {
 
-    var parseFunc : (String, String, haxe.io.Bytes) -> hxd.fmt.gltf.Data;
+    private var parseFunc: ParseFunction;
 
     public function new(binary: Bool) {
         this.parseFunc = binary ?
@@ -13,34 +17,33 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
     }
 
     override function convert() {
+        var filename = haxe.io.Path.withoutDirectory(this.srcPath);
+        var filepath = haxe.io.Path.directory(this.srcPath);
 
-        var splitPath = srcPath.split("/");
-        var name = splitPath[splitPath.length - 1];
-
-        var localPath = srcPath.substr(0, srcPath.length-name.length);
-
-        var relPath = "";
-        // Find the path relative to the assets dir
-
-        var resPos = localPath.indexOf("/res/");
-
-        if (resPos != -1) {
-            relPath = localPath.substr(resPos+4);
-            trace(relPath);
+        // Find the path relative to the asset's dir
+        var directory = haxe.macro.Context.definedValue("resourcesPath");
+        if (directory == null) directory = "res";
+        var pos = this.srcPath.indexOf('/$directory/');
+        if (pos == -1) {
+            trace(filepath);
+            trace(this.srcPath);
+            throw "path not relative to resource dir?";
         }
+        var relpath = filepath.substr(pos + directory.length + 2);
+
         try {
-            var gltfData = parseFunc(name, localPath, srcBytes);
-            var hmd = hxd.fmt.gltf.HMDOut.emitHMD(name, relPath, gltfData);
+            // read/parse gltf and output hmd
+            var data = this.parseFunc(filename, filepath, this.srcBytes);
+            var hmd = HMDOut.emitHMD(filename, relpath, data);
             var out = new haxe.io.BytesOutput();
             new hxd.fmt.hmd.Writer(out).write(hmd);
-            save(out.getBytes());
+            this.save(out.getBytes());
+        } catch (e: Dynamic) {
+            throw Std.string(e) + " in " + srcPath;
         }
-        catch( e : Dynamic ) throw Std.string(e) + " in " + srcPath;
-
     }
 
-    static var glbConv = hxd.fs.Convert.register(new ConvertGLTF2HMD(true));
-    static var gltfConv = hxd.fs.Convert.register(new ConvertGLTF2HMD(false));
+    // TODO: why is this hack needed
     #if (sys || nodejs)
     static var __ = hxd.fs.FileConverter.addConfig({
         "fs.convert": {
@@ -48,4 +51,8 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
         }
     });
     #end
+
+    static var glbConv = hxd.fs.Convert.register(new ConvertGLTF2HMD(true));
+    static var gltfConv = hxd.fs.Convert.register(new ConvertGLTF2HMD(false));
+
 }

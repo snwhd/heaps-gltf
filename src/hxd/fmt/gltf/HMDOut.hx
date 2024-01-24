@@ -12,15 +12,15 @@ class HMDOut {
 
     var gltfData: Data;
     var name: String;
-    var relDir: String;
+    var directory: String;
 
-    public function new(name:String, relDir:String, data: Data) {
+    public function new(name:String, directory:String, data: Data) {
         this.name = name;
-        this.relDir = relDir;
+        this.directory = directory;
         this.gltfData = data;
     }
 
-    public function toHMD():hxd.fmt.hmd.Data {
+    public function toHMD(): hxd.fmt.hmd.Data {
         var outBytes = new haxe.io.BytesOutput();
 
         // Emit the geometry
@@ -264,7 +264,7 @@ class HMDOut {
             if (mat.colorTex != null) {
                 switch(mat.colorTex) {
                     case File(fileName):
-                        hMat.diffuseTexture = relDir + fileName;
+                        hMat.diffuseTexture = haxe.io.Path.join([directory, fileName]);
                     case Buffer(buff, pos, len, ext): {
                         inlineImages.push(
                             { buff:buff, pos:pos, len:len, ext:ext, mat:matInd });
@@ -706,8 +706,8 @@ class HMDOut {
     }
 
 
-    public static function emitHMD(name:String, relDir:String, data: Data) {
-        var out = new HMDOut(name, relDir,data);
+    public static function emitHMD(name: String, directory: String, data: Data) {
+        var out = new HMDOut(name, directory, data);
         return out.toHMD();
     }
 }
