@@ -28,6 +28,9 @@ class HMDOut {
         var geoMap = new SeqIntMap();
         for (mesh in this.data.meshes) {
             for (prim in mesh.primitives) {
+                if (prim.mode != TRIANGLES) {
+                    throw "TODO: non-triangle prims?";
+                }
                 geoMap.add(prim.accList);
             }
         }
@@ -52,6 +55,7 @@ class HMDOut {
             var hasWeights  = accessors[WEIGHTS] != -1;
             var hasIndices  = accessors[INDICES] != -1;
             var hasTangents = accessors[TAN]     != -1;
+            var hasGeneratedTangents = false;
 
             if (!hasNorm && hasIndices) {
                 throw "generating normals on indexed models is not supported";
@@ -70,12 +74,28 @@ class HMDOut {
                 genNormals = this.generateNormals(posAcc);
             }
 
+            var generatedTangents: Array<Float> = null;
             if (!hasTangents) {
-                var tangents = this.generateTangents(posAcc, normAcc, uvAcc);
-                if (tangents == null) {
+                var indices: Array<Int> = [];
+                if (hasIndices) {
+                    var indAcc = this.data.accData[accessors[INDICES]];
+                    for (i in 0 ... indAcc.count) {
+                        indices.push(Util.getIndex(this.data, indAcc, i));
+                    }
+                } else {
+                    if (posAcc.count != normAcc.count) throw "ASDF";
+                    for (i in 0 ... posAcc.count) {
+                        indices.push(i);
+                    }
+                }
+
+                generatedTangents = this.generateTangents(posAcc, normAcc, uvAcc, indices);
+                if (generatedTangents == null) {
                     throw "failed to generate tangents";
                 }
-                hasTangents = true;
+                hasGeneratedTangents = true;
+            } else {
+                // TODO: force generate tangents?
             }
 
             var norAcc = this.data.accData[accessors[NOR]];
@@ -114,7 +134,12 @@ class HMDOut {
                     outBytes.writeFloat(Util.getFloat(this.data, tanAcc, i, 0));
                     outBytes.writeFloat(Util.getFloat(this.data, tanAcc, i, 1));
                     outBytes.writeFloat(Util.getFloat(this.data, tanAcc, i, 2));
+                } else if (hasGeneratedTangents) {
+                    outBytes.writeFloat(generatedTangents[i*3 + 0]);
+                    outBytes.writeFloat(generatedTangents[i*3 + 1]);
+                    outBytes.writeFloat(generatedTangents[i*3 + 2]);
                 } else {
+                    throw "need tangents";
                     // Reserve space for tangent data
                     // (We'll optionally fix it up later)
                     outBytes.writeFloat(0);
@@ -577,7 +602,8 @@ class HMDOut {
                 ps.push(new Vector(
                     Util.getFloat(this.data, posAcc, i*3+p,0),
                     Util.getFloat(this.data, posAcc, i*3+p,1),
-                    Util.getFloat(this.data, posAcc, i*3+p,2)));
+                    Util.getFloat(this.data, posAcc, i*3+p,2)
+                ));
             }
             var d0 = ps[1].sub(ps[0]);
             var d1 = ps[2].sub(ps[1]);
@@ -625,10 +651,9 @@ class HMDOut {
     function generateTangents(
         posAcc: BuffAccess,
         normAcc: BuffAccess,
-        uvAcc: BuffAccess
-    ): Array<Vector> {
-
-        var index = 0;
+        uvAcc: BuffAccess,
+        indices: Array<Int>
+    ): Array<Float> {
 
         #if (hl && !hl_disable_mikkt && (haxe_ver >= "4.0"))
         // use hashlink mikktospace to generate tangents
@@ -646,11 +671,11 @@ class HMDOut {
         m.normalPos = 3;
         m.uvPos = 6;
 
-        m.indexes = new hl.Bytes(4 * index.vidx.length);
-        m.indices = index.vidx.length;
+        m.indexes = new hl.Bytes(4 * indices.length);
+        m.indices = indices.length;
 
-        m.tangents = new hl.Bytes(4 * 4 * index.vidx.length);
-        (m.tangents:hl.Bytes).fill(0,4 * 4 * index.vidx.length,0);
+        m.tangents = new hl.Bytes(4 * 4 * indices.length);
+        (m.tangents:hl.Bytes).fill(0,4 * 4 * indices.length,0);
         m.tangentStride = 4;
         m.tangentPos = 0;
 
@@ -690,8 +715,8 @@ class HMDOut {
         }
 
 
-        for( i in 0...index.vidx.length ) {
-            var vidx = index.vidx[i];
+        for( i in 0...indices.length ) {
+            var vidx = indices[i];
             m.buffer[out++] = verts[vidx*3];
             m.buffer[out++] = verts[vidx*3+1];
             m.buffer[out++] = verts[vidx*3+2];
@@ -725,7 +750,7 @@ class HMDOut {
         var now = Date.now().getTime();
         var nonce = Std.random(0x1000000);
         var filename = haxe.io.Path.join([
-            "tmp",
+            tmp,
             "mikktspace_data" + now + "_" + nonce + ".bin",
         ]);
 
@@ -736,29 +761,28 @@ class HMDOut {
         var outfile = filename + ".out";
         var dataBuffer = new haxe.io.BytesBuffer();
 
-        dataBuffer.addInt32(index.vidx.length);
+        dataBuffer.addInt32(indices.length);
         dataBuffer.addInt32(8); // ?
         dataBuffer.addInt32(0); // ?
         dataBuffer.addInt32(3); // ?
         dataBuffer.addInt32(6); // ?
 
-        for (i in 0 ... index.vidx.length) {
-            var vidx = index.vidx[i];
-            dataBuffer.addFloat(verts[vidx*3]);
-            dataBuffer.addFloat(verts[vidx*3+1]);
-            dataBuffer.addFloat(verts[vidx*3+2]);
+        for (i in 0 ... indices.length) {
+            var vidx = indices[i];
+            dataBuffer.addFloat(Util.getFloat(this.data, posAcc, vidx, 0));
+            dataBuffer.addFloat(Util.getFloat(this.data, posAcc, vidx, 1));
+            dataBuffer.addFloat(Util.getFloat(this.data, posAcc, vidx, 2));
 
-            dataBuffer.addFloat(normals[i*3]);
-            dataBuffer.addFloat(normals[i*3+1]);
-            dataBuffer.addFloat(normals[i*3+2]);
+            dataBuffer.addFloat(Util.getFloat(this.data, normAcc, vidx, 0));
+            dataBuffer.addFloat(Util.getFloat(this.data, normAcc, vidx, 1));
+            dataBuffer.addFloat(Util.getFloat(this.data, normAcc, vidx, 2));
 
-            var uidx = uvs[0].index[i];
-            dataBuffer.addFloat(uvs[0].values[uidx*2]);
-            dataBuffer.addFloat(uvs[0].values[uidx*2+1]);
+            dataBuffer.addFloat(Util.getFloat(this.data, uvAcc, vidx, 0));
+            dataBuffer.addFloat(Util.getFloat(this.data, uvAcc, vidx, 1));
         }
 
-        dataBuffer.addInt32(index.vidx.length);
-        for (i in 0 ... index.vidx.length) {
+        dataBuffer.addInt32(indices.length);
+        for (i in 0 ... indices.length) {
             dataBuffer.addInt32(i);
         }
 
@@ -778,7 +802,7 @@ class HMDOut {
 
         var arr = [];
         var bytes = sys.io.File.getBytes(outfile);
-        for (i in 0 ... index.vidx.length*4) {
+        for (i in 0 ... indices.length*4) {
             arr[i] = bytes.getFloat(i << 2);
         }
 
@@ -801,55 +825,6 @@ class HMDOut {
     ): hxd.fmt.hmd.Data {
         var out = new HMDOut(name, directory, data);
         return out.toHMD();
-    }
-
-    // copied from fbx
-    private function getPolygons(): Array<Int> {
-        // TODO: replace with index accessor
-        return [];
-        // return root.get("PolygonVertexIndex").getInts();
-    }
-
-    // Decode polygon informations into triangle indexes and vertices indexes.
-    // Returns vidx, which is the list of vertices indexes and iout which is the
-    // index buffer for the full vertex model.
-    private function getIndexes() {
-        var count = 0;
-        var vout = [];
-        var iout = [];
-
-        // TODO: replace
-        var indexes = this.getPolygons();
-
-        for (pos => idx in indexes.keyValueIterator()) {
-            count++;
-            if (idx < 0) {
-                // negative indexes mark the end of a tri
-
-                // backtrack to the first index of this tri
-                // and push verts into output
-                var start = pos - count + 1;
-                for (n in 0 ... count - 1) {
-                    vout.push(indexes[start + n]);
-                }
-                // invert and push the current (negative) index
-                vout.push(-idx - 1);
-
-                // push indexes into output
-                for (n in 0 ... count - 2) {
-                    iout.push(start + n);
-                    iout.push(start + count - 1);
-                    iout.push(start + n + 1);
-                }
-
-                count = 0;
-            }
-        }
-
-        return {
-            vidx: vout,
-            idx: iout
-        };
     }
 
 }
