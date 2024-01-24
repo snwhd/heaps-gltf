@@ -269,10 +269,10 @@ class HMDOut {
 
             if (mat.colorTex != null) {
                 switch(mat.colorTex) {
-                    case File(fileName):
+                    case File(filename):
                         hMat.diffuseTexture = haxe.io.Path.join([
                             this.directory,
-                            fileName
+                            filename
                         ]);
                     case Buffer(buff, pos, len, ext): {
                         inlineImages.push({
@@ -627,8 +627,13 @@ class HMDOut {
         normAcc: BuffAccess,
         uvAcc: BuffAccess
     ): Array<Vector> {
-        /*
+
+        var index = 0;
+
         #if (hl && !hl_disable_mikkt && (haxe_ver >= "4.0"))
+        // use hashlink mikktospace to generate tangents
+
+        /*
         if (posAcc.count % 3 != 0) throw "";
         if (normAcc.count % 3 != 0) throw "";
 
@@ -706,55 +711,86 @@ class HMDOut {
 
         m.compute();
         return m.tangents;
+        */
+
         #elseif (sys || nodejs)
+        // not hl, shell out to system mikktspace
+
+        // find location for temporary files
         var tmp = Sys.getEnv("TMPDIR");
-        if( tmp == null ) tmp = Sys.getEnv("TMP");
-        if( tmp == null ) tmp = Sys.getEnv("TEMP");
-        if( tmp == null ) tmp = ".";
-        var fileName = tmp+"/mikktspace_data"+Date.now().getTime()+"_"+Std.random(0x1000000)+".bin";
-        var outFile = fileName+".out";
-        var outputData = new haxe.io.BytesBuffer();
-        outputData.addInt32(index.vidx.length);
-        outputData.addInt32(8);
-        outputData.addInt32(0);
-        outputData.addInt32(3);
-        outputData.addInt32(6);
-        for( i in 0...index.vidx.length ) {
-            inline function w(v:Float) outputData.addFloat(v);
+        if  (tmp == null) tmp = Sys.getEnv("TMP");
+        if  (tmp == null) tmp = Sys.getEnv("TEMP");
+        if  (tmp == null) tmp = ".";
+
+        var now = Date.now().getTime();
+        var nonce = Std.random(0x1000000);
+        var filename = haxe.io.Path.join([
+            "tmp",
+            "mikktspace_data" + now + "_" + nonce + ".bin",
+        ]);
+
+        //
+        // create mikktspace input data
+        //
+
+        var outfile = filename + ".out";
+        var dataBuffer = new haxe.io.BytesBuffer();
+
+        dataBuffer.addInt32(index.vidx.length);
+        dataBuffer.addInt32(8); // ?
+        dataBuffer.addInt32(0); // ?
+        dataBuffer.addInt32(3); // ?
+        dataBuffer.addInt32(6); // ?
+
+        for (i in 0 ... index.vidx.length) {
             var vidx = index.vidx[i];
-            w(verts[vidx*3]);
-            w(verts[vidx*3+1]);
-            w(verts[vidx*3+2]);
+            dataBuffer.addFloat(verts[vidx*3]);
+            dataBuffer.addFloat(verts[vidx*3+1]);
+            dataBuffer.addFloat(verts[vidx*3+2]);
 
-            w(normals[i*3]);
-            w(normals[i*3+1]);
-            w(normals[i*3+2]);
+            dataBuffer.addFloat(normals[i*3]);
+            dataBuffer.addFloat(normals[i*3+1]);
+            dataBuffer.addFloat(normals[i*3+2]);
+
             var uidx = uvs[0].index[i];
-
-            w(uvs[0].values[uidx*2]);
-            w(uvs[0].values[uidx*2+1]);
+            dataBuffer.addFloat(uvs[0].values[uidx*2]);
+            dataBuffer.addFloat(uvs[0].values[uidx*2+1]);
         }
-        outputData.addInt32(index.vidx.length);
-        for( i in 0...index.vidx.length )
-            outputData.addInt32(i);
-        sys.io.File.saveBytes(fileName, outputData.getBytes());
-        var ret = try Sys.command("mikktspace",[fileName,outFile]) catch( e : Dynamic ) -1;
-        if( ret != 0 ) {
-            sys.FileSystem.deleteFile(fileName);
+
+        dataBuffer.addInt32(index.vidx.length);
+        for (i in 0 ... index.vidx.length) {
+            dataBuffer.addInt32(i);
+        }
+
+        // save
+        sys.io.File.saveBytes(filename, dataBuffer.getBytes());
+
+        //
+        // run mikktspace
+        //
+
+        var ret = try Sys.command("mikktspace", [filename, outfile])
+                  catch (e: Dynamic) -1;
+        if (ret != 0) {
+            sys.FileSystem.deleteFile(filename);
             throw "Failed to call 'mikktspace' executable required to generate tangent data. Please ensure it's in your PATH";
         }
-        var bytes = sys.io.File.getBytes(outFile);
+
         var arr = [];
-        for( i in 0...index.vidx.length*4 )
+        var bytes = sys.io.File.getBytes(outfile);
+        for (i in 0 ... index.vidx.length*4) {
             arr[i] = bytes.getFloat(i << 2);
-        sys.FileSystem.deleteFile(fileName);
-        sys.FileSystem.deleteFile(outFile);
+        }
+
+        // cleanup
+        sys.FileSystem.deleteFile(filename);
+        sys.FileSystem.deleteFile(outfile);
         return arr;
+
         #else
         throw "Tangent generation is not supported on this platform";
-        return ([] : Array<Float>);
         #end
-        */
+
         return null;
     }
 
@@ -766,4 +802,54 @@ class HMDOut {
         var out = new HMDOut(name, directory, data);
         return out.toHMD();
     }
+
+    // copied from fbx
+    private function getPolygons(): Array<Int> {
+        // TODO: replace with index accessor
+        return [];
+        // return root.get("PolygonVertexIndex").getInts();
+    }
+
+    // Decode polygon informations into triangle indexes and vertices indexes.
+    // Returns vidx, which is the list of vertices indexes and iout which is the
+    // index buffer for the full vertex model.
+    private function getIndexes() {
+        var count = 0;
+        var vout = [];
+        var iout = [];
+
+        // TODO: replace
+        var indexes = this.getPolygons();
+
+        for (pos => idx in indexes.keyValueIterator()) {
+            count++;
+            if (idx < 0) {
+                // negative indexes mark the end of a tri
+
+                // backtrack to the first index of this tri
+                // and push verts into output
+                var start = pos - count + 1;
+                for (n in 0 ... count - 1) {
+                    vout.push(indexes[start + n]);
+                }
+                // invert and push the current (negative) index
+                vout.push(-idx - 1);
+
+                // push indexes into output
+                for (n in 0 ... count - 2) {
+                    iout.push(start + n);
+                    iout.push(start + count - 1);
+                    iout.push(start + n + 1);
+                }
+
+                count = 0;
+            }
+        }
+
+        return {
+            vidx: vout,
+            idx: iout
+        };
+    }
+
 }
