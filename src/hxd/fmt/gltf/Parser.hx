@@ -306,8 +306,8 @@ class Parser {
         var maxPos = bufferView.byteLength + bufferView.byteOffset;
 
         // Check the buffer view length logic
-        var offset = accessor.byteOffset + stride*(accessor.count - 1) + elSize;
-        if (offset > bufferView.byteLength) {
+        var maxOffset = accessor.byteOffset + stride*(accessor.count - 1) + elSize;
+        if (maxOffset > bufferView.byteLength) {
             throw "out of bounds bufferView access";
         }
 
