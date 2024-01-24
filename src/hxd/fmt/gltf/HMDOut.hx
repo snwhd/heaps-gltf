@@ -3,32 +3,30 @@ package hxd.fmt.gltf;
 import h3d.Quat;
 import h3d.Vector;
 import h3d.col.Bounds;
-import hxd.fmt.hmd.Data;
 
+import hxd.fmt.hmd.Data;
 import hxd.fmt.gltf.Data;
 
 
 class HMDOut {
 
-    var gltfData: Data;
-    var name: String;
-    var directory: String;
+    private var directory: String;
+    private var name: String;
+    private var data: Data;
 
-    public function new(name:String, directory:String, data: Data) {
+    public function new(name: String, directory: String, data: Data) {
         this.name = name;
         this.directory = directory;
-        this.gltfData = data;
+        this.data = data;
     }
 
     public function toHMD(): hxd.fmt.hmd.Data {
         var outBytes = new haxe.io.BytesOutput();
 
-        // Emit the geometry
-
         // Emit unique combinations of accessors
         // as a single buffer to save data
         var geoMap = new SeqIntMap();
-        for (mesh in gltfData.meshes) {
+        for (mesh in this.data.meshes) {
             for (prim in mesh.primitives) {
                 geoMap.add(prim.accList);
             }
@@ -41,18 +39,19 @@ class HMDOut {
 
         // Emit one HMD geometry per unique primitive combo
         for (i in 0...geoMap.count) {
+
             dataPos.push(outBytes.length);
             var bb = new Bounds();
             bb.empty();
             bounds.push(bb);
 
-            var accList = geoMap.getList(i);
-            var hasNorm = accList[NOR] != -1;
-            var hasTex = accList[TEX] != -1;
-            var hasJoints = accList[JOINTS] != -1;
-            var hasWeights = accList[WEIGHTS] != -1;
-            var hasIndices = accList[INDICES] != -1;
-            var hasTangents = accList[TAN] != -1;
+            var accessors   = geoMap.getList(i);
+            var hasNorm     = accessors[NOR]     != -1;
+            var hasTex      = accessors[TEX]     != -1;
+            var hasJoints   = accessors[JOINTS]  != -1;
+            var hasWeights  = accessors[WEIGHTS] != -1;
+            var hasIndices  = accessors[INDICES] != -1;
+            var hasTangents = accessors[TAN]     != -1;
 
             if (!hasNorm && hasIndices) {
                 throw "generating normals on indexed models is not supported";
@@ -61,45 +60,48 @@ class HMDOut {
                 throw "joints/weights mismatch";
             }
 
-            var posAcc = gltfData.accData[accList[POS]];
-            var normAcc = gltfData.accData[accList[NOR]];
-            var uvAcc = gltfData.accData[accList[TEX]];
-            var tanAcc = gltfData.accData[accList[TAN]];
+            var posAcc  = this.data.accData[accessors[POS]];
+            var normAcc = this.data.accData[accessors[NOR]];
+            var uvAcc   = this.data.accData[accessors[TEX]];
+            var tanAcc  = this.data.accData[accessors[TAN]];
 
             var genNormals = null;
             if (!hasNorm) {
-                genNormals = generateNormals(posAcc);
+                genNormals = this.generateNormals(posAcc);
             }
 
             if (!hasTangents) {
-                var tangents = generateTangents(posAcc, normAcc, uvAcc);
+                var tangents = this.generateTangents(posAcc, normAcc, uvAcc);
                 if (tangents == null) {
                     throw "failed to generate tangents";
                 }
                 hasTangents = true;
             }
 
+            var norAcc = this.data.accData[accessors[NOR]];
+            var texAcc = this.data.accData[accessors[TEX]];
+            var jointAcc  = hasJoints
+                ? this.data.accData[accessors[JOINTS]]
+                : null;
+            var weightAcc = hasWeights
+                ? this.data.accData[accessors[WEIGHTS]]
+                : null;
 
-            var norAcc = gltfData.accData[accList[NOR]];
-            var texAcc = gltfData.accData[accList[TEX]];
-            var jointAcc = hasJoints ? gltfData.accData[accList[JOINTS]] : null;
-            var weightAcc = hasWeights ? gltfData.accData[accList[WEIGHTS]] : null;
-
-            for (i in 0...posAcc.count) {
-                // Position data
-                var x = Util.getFloat(gltfData, posAcc, i, 0);
+            for (i in 0 ... posAcc.count) {
+                // write positions
+                var x = Util.getFloat(this.data, posAcc, i, 0);
                 outBytes.writeFloat(x);
-                var y = Util.getFloat(gltfData, posAcc, i, 1);
+                var y = Util.getFloat(this.data, posAcc, i, 1);
                 outBytes.writeFloat(y);
-                var z = Util.getFloat(gltfData, posAcc, i, 2);
+                var z = Util.getFloat(this.data, posAcc, i, 2);
                 outBytes.writeFloat(z);
                 bb.addPos(x, y, z);
 
-                // Normal data
+                // write normals
                 if (hasNorm) {
-                    outBytes.writeFloat(Util.getFloat(gltfData, norAcc, i, 0));
-                    outBytes.writeFloat(Util.getFloat(gltfData, norAcc, i, 1));
-                    outBytes.writeFloat(Util.getFloat(gltfData, norAcc, i, 2));
+                    outBytes.writeFloat(Util.getFloat(this.data, norAcc, i, 0));
+                    outBytes.writeFloat(Util.getFloat(this.data, norAcc, i, 1));
+                    outBytes.writeFloat(Util.getFloat(this.data, norAcc, i, 2));
                 } else {
                     var norm = genNormals[Std.int(i/3)];
                     outBytes.writeFloat(norm.x);
@@ -107,43 +109,43 @@ class HMDOut {
                     outBytes.writeFloat(norm.z);
                 }
 
-                if( hasTangents )
-                {
-                    outBytes.writeFloat(Util.getFloat(gltfData, tanAcc, i, 0));
-                    outBytes.writeFloat(Util.getFloat(gltfData, tanAcc, i, 1));
-                    outBytes.writeFloat(Util.getFloat(gltfData, tanAcc, i, 2));
-                }
-                else
-                {
-                    // Reserve space for tangent data (We'll optionally fix it up later
+                // write tangents
+                if (hasTangents) {
+                    outBytes.writeFloat(Util.getFloat(this.data, tanAcc, i, 0));
+                    outBytes.writeFloat(Util.getFloat(this.data, tanAcc, i, 1));
+                    outBytes.writeFloat(Util.getFloat(this.data, tanAcc, i, 2));
+                } else {
+                    // Reserve space for tangent data
+                    // (We'll optionally fix it up later)
                     outBytes.writeFloat(0);
                     outBytes.writeFloat(0);
                     outBytes.writeFloat(0);
                 }
 
-
-                // Tex coord data
+                // write tex coords
                 if (hasTex) {
-                    outBytes.writeFloat(Util.getFloat(gltfData, texAcc, i, 0));
-                    outBytes.writeFloat(Util.getFloat(gltfData, texAcc, i, 1));
+                    outBytes.writeFloat(Util.getFloat(this.data, texAcc, i, 0));
+                    outBytes.writeFloat(Util.getFloat(this.data, texAcc, i, 1));
                 } else {
                     outBytes.writeFloat(0.5);
                     outBytes.writeFloat(0.5);
                 }
 
+                // write joints
                 if (hasJoints) {
                     for (jInd in 0...4) {
-                        var joint = Util.getInt(gltfData, jointAcc, i, jInd);
+                        var joint = Util.getInt(this.data, jointAcc, i, jInd);
                         if (joint < 0) throw "negative joint index";
                         outBytes.writeByte(joint);
                     }
                     //outBytes.writeByte(0);
                 }
+
+                // write weights
                 if (hasWeights) {
                     for (wInd in 0...4) {
-                        var wVal = Util.getFloat(gltfData, weightAcc, i, wInd);
+                        var wVal = Util.getFloat(this.data, weightAcc, i, wInd);
                         if (Math.isNaN(wVal)) throw "invalid weight (NaN)";
-
                         outBytes.writeFloat(wVal);
                     }
                 }
@@ -152,9 +154,12 @@ class HMDOut {
 
         // Find the unique combination of accessor lists in each
         // mesh. This will map on to the HMD geometry concept
-        var meshAccLists:Array<Array<Int>> = [];
-        for (mesh in gltfData.meshes) {
-            var accs = Lambda.map(mesh.primitives, (prim) -> geoMap.add(prim.accList));
+        var meshAccLists: Array<Array<Int>> = [];
+        for (mesh in this.data.meshes) {
+            var accs = Lambda.map(
+                mesh.primitives,
+                (prim) -> geoMap.add(prim.accList)
+            );
             accs.sort((a, b) -> a - b);
             var uniqueAccs = [];
             var last = -1;
@@ -173,14 +178,14 @@ class HMDOut {
         // Generate a geometry for each mesh-accessor
         // Also retain the materials used
         var meshToGeoMap:Array<Array<Int>> = [];
-        for (meshInd in 0...gltfData.meshes.length) {
+        for (meshInd in 0 ... this.data.meshes.length) {
             var meshGeoList = [];
             meshToGeoMap.push(meshGeoList);
 
             var accList = meshAccLists[meshInd];
             for (accSet in accList) {
                 var accessors = geoMap.getList(accSet);
-                var posAcc = gltfData.accData[accessors[0]];
+                var posAcc = this.data.accData[accessors[0]];
 
                 var geo = new Geometry();
                 var geoMats = [];
@@ -206,16 +211,16 @@ class HMDOut {
                 }
 
                 geo.vertexFormat = hxd.BufferFormat.make(format);
-                if (geo.vertexFormat.stride != stride) throw "unexpected stride";
+                if (geo.vertexFormat.stride != stride) {
+                    throw "unexpected stride";
+                }
 
                 geo.vertexPosition = dataPos[accSet];
                 geo.bounds = bounds[accSet];
 
-                var mesh = gltfData.meshes[meshInd];
+                var mesh = this.data.meshes[meshInd];
 
                 // @todo
-
-
 
                 var indexList = [];
                 // Iterate the primitives and add indices for this geo
@@ -231,12 +236,13 @@ class HMDOut {
                         geoMats.push(prim.matInd);
                         indexList.push([]);
                     }
+
                     // Fill the index list
                     if (prim.indices != null) {
                         var iList = indexList[matInd];
-                        var indexAcc = gltfData.accData[prim.indices];
+                        var indexAcc = this.data.accData[prim.indices];
                         for (i in 0...indexAcc.count) {
-                            iList.push(Util.getIndex(gltfData, indexAcc, i));
+                            iList.push(Util.getIndex(this.data, indexAcc, i));
                         }
                     } else {
                         indexList[matInd] = [for (i in 0...geo.vertexCount) i];
@@ -256,18 +262,26 @@ class HMDOut {
 
         var inlineImages = [];
         var materials = [];
-        for (matInd in 0...gltfData.mats.length) {
-            var mat = gltfData.mats[matInd];
+        for (matInd in 0 ... this.data.mats.length) {
+            var mat = this.data.mats[matInd];
             var hMat = new hxd.fmt.hmd.Material();
             hMat.name = mat.name;
 
             if (mat.colorTex != null) {
                 switch(mat.colorTex) {
                     case File(fileName):
-                        hMat.diffuseTexture = haxe.io.Path.join([directory, fileName]);
+                        hMat.diffuseTexture = haxe.io.Path.join([
+                            this.directory,
+                            fileName
+                        ]);
                     case Buffer(buff, pos, len, ext): {
-                        inlineImages.push(
-                            { buff:buff, pos:pos, len:len, ext:ext, mat:matInd });
+                        inlineImages.push({
+                            buff: buff,
+                            pos: pos,
+                            len: len,
+                            ext: ext,
+                            mat: matInd
+                        });
                     }
                 }
             } else if (mat.color != null) {
@@ -295,7 +309,7 @@ class HMDOut {
         models[0] = rootModel;
 
         var nextOutID = 1;
-        for (n in gltfData.nodes) {
+        for (n in this.data.nodes) {
             // Mark the slot the node will be put into
             // while skipping over joints
             if (!n.isJoint) {
@@ -303,28 +317,31 @@ class HMDOut {
             }
         }
 
-        for (i in 0...gltfData.nodes.length) {
-            // Sanity check
-            var node = gltfData.nodes[i];
-            if (node.nodeInd != i) throw 'invalid nodex index ${node.nodeInd} != $i';
-            if (node.isJoint)
-                continue;
+        for (i in 0 ... this.data.nodes.length) {
+            // sanity check
+            var node = this.data.nodes[i];
+            if (node.nodeInd != i) {
+                throw 'invalid nodex index ${node.nodeInd} != $i';
+            } else if (node.isJoint) continue;
 
             var model = new Model();
             model.name = node.name;
             model.props = null;
             model.parent = node.parent != null ? node.parent.outputID: 0;
             model.follow = null;
-            model.position = nodeToPos(node);
+            model.position = this.nodeToPos(node);
             model.skin = null;
             if (node.mesh != null) {
                 if (node.skin != null) {
-                    model.skin = buildSkin(gltfData.skins[node.skin], node.name);
+                    model.skin = this.buildSkin(
+                        this.data.skins[node.skin],
+                        node.name
+                    );
                     //model.skin = null;
                 }
 
                 var geoList = meshToGeoMap[node.mesh];
-                if(geoList.length == 1) {
+                if (geoList.length == 1) {
                     // We can put the single geometry in this node
                     model.geometry = geoList[0];
                     model.materials = geoMaterials[geoList[0]];
@@ -334,7 +351,7 @@ class HMDOut {
                     // We need to generate a model per primitive
                     for (geoInd in geoList) {
                         var primModel = new Model();
-                        primModel.name = gltfData.meshes[node.mesh].name;
+                        primModel.name = this.data.meshes[node.mesh].name;
                         primModel.props = null;
                         primModel.parent = node.outputID;
                         primModel.position = identPos;
@@ -345,7 +362,6 @@ class HMDOut {
                         models[nextOutID++] = primModel;
                     }
                 }
-
             } else {
                 model.geometry = -1;
                 model.materials = null;
@@ -355,7 +371,7 @@ class HMDOut {
 
         // Populate animation information and fill data
         var anims = [];
-        for (animData in gltfData.animations) {
+        for (animData in this.data.animations) {
             var anim = new hxd.fmt.hmd.Data.Animation();
             anim.name = animData.name;
             anim.props = null;
@@ -381,13 +397,15 @@ class HMDOut {
             }
             // Fill in the animation data
             anim.dataPosition = outBytes.length;
-            for (f in 0...anim.frames) {
+            for (f in 0 ... anim.frames) {
                 for (curve in animData.curves) {
+
                     if (curve.transValues != null) {
                         outBytes.writeFloat(curve.transValues[f*3+0]);
                         outBytes.writeFloat(curve.transValues[f*3+1]);
                         outBytes.writeFloat(curve.transValues[f*3+2]);
                     }
+
                     if (curve.rotValues != null) {
                         var quat = new Quat(
                             curve.rotValues[f*4+0],
@@ -395,7 +413,11 @@ class HMDOut {
                             curve.rotValues[f*4+2],
                             curve.rotValues[f*4+3]);
                         var qLength = quat.length();
-                        if (Math.abs(qLength-1.0) >= 0.2) throw "invalid animation curve";
+
+                        if (Math.abs(qLength-1.0) >= 0.2) {
+                            throw "invalid animation curve";
+                        }
+
                         quat.normalize();
                         if (quat.w < 0) {
                             quat.w*= -1;
@@ -407,6 +429,7 @@ class HMDOut {
                         outBytes.writeFloat(quat.y);
                         outBytes.writeFloat(quat.z);
                     }
+
                     if (curve.scaleValues != null) {
                         outBytes.writeFloat(curve.scaleValues[f*3+0]);
                         outBytes.writeFloat(curve.scaleValues[f*3+1]);
@@ -415,7 +438,6 @@ class HMDOut {
                 }
             }
             anims.push(anim);
-
         }
 
         // Append any inline images to the binary data
@@ -424,97 +446,122 @@ class HMDOut {
             var mat = materials[img.mat];
             mat.diffuseTexture = '${img.ext}@${outBytes.length}--${img.len}';
 
-            var imageBytes = gltfData.bufferData[img.buff].sub(img.pos, img.len);
+            var imageBytes = this.data.bufferData[img.buff].sub(
+                img.pos,
+                img.len
+            );
             outBytes.writeBytes(imageBytes, 0, img.len);
         }
 
         var ret = new hxd.fmt.hmd.Data();
+
         #if hmd_version
-        ret.version = Std.parseInt(#if macro haxe.macro.Context.definedValue("hmd_version") #else haxe.macro.Compiler.getDefine("hmd_version") #end);
+        ret.version = Std.parseInt(
+            #if macro
+            haxe.macro.Context.definedValue("hmd_version")
+            #else
+            haxe.macro.Compiler.getDefine("hmd_version")
+            #end
+        );
         #else
         ret.version = hxd.fmt.hmd.Data.CURRENT_VERSION;
         #end
+
         ret.props = null;
         ret.materials = materials;
         ret.geometries = geos;
         ret.models = models;
         ret.animations = anims;
         ret.dataPosition = 0;
-
         ret.data = outBytes.getBytes();
-
         return ret;
     }
 
-    function makePosition( m : h3d.Matrix ) {
+    function makePosition(m: h3d.Matrix) {
         var p = new Position();
         var s = m.getScale();
         var q = new h3d.Quat();
+
         q.initRotateMatrix(m);
         q.normalize();
-        if( q.w < 0 ) q.negate();
-        p.sx = round(s.x);
-        p.sy = round(s.y);
-        p.sz = round(s.z);
-        p.qx = round(q.x);
-        p.qy = round(q.y);
-        p.qz = round(q.z);
-        p.x = round(m._41);
-        p.y = round(m._42);
-        p.z = round(m._43);
+        if (q.w < 0) q.negate();
+
+        p.sx = this.round(s.x);
+        p.sy = this.round(s.y);
+        p.sz = this.round(s.z);
+        p.qx = this.round(q.x);
+        p.qy = this.round(q.y);
+        p.qz = this.round(q.z);
+        p.x = this.round(m._41);
+        p.y = this.round(m._42);
+        p.z = this.round(m._43);
         return p;
     }
 
-    /**
-        Keep high precision values. Might increase animation data size and compressed size.
-    **/
+    // Keep high precision values.
+    // Might increase animation data size and compressed size.
     public var highPrecision : Bool = false;
 
     function round(v:Float) {
-        if( v != v ) throw "NaN found";
+        if (v != v) throw "NaN found";
         return highPrecision ? v : std.Math.fround(v * 131072) / 131072;
     }
 
     function buildSkin(skin:SkinData, nodeName): hxd.fmt.hmd.Data.Skin {
         var ret = new hxd.fmt.hmd.Data.Skin();
-        ret.name = (skin.skeleton != null ? gltfData.nodes[skin.skeleton].name : nodeName) + "_skin";
+        ret.name = (
+            skin.skeleton != null
+            ? this.data.nodes[skin.skeleton].name
+            : nodeName
+        ) + "_skin";
         ret.props = [FourBonesByVertex]; // @todo should this go here or in sj?
         ret.split = null;
         ret.joints = [];
+
         for (i in 0...skin.joints.length) {
             var jInd = skin.joints[i];
+            var node = this.data.nodes[jInd];
+
             var sj = new hxd.fmt.hmd.Data.SkinJoint();
-            var node = gltfData.nodes[jInd];
             sj.name = node.name;
             sj.props = null;
-            sj.position = nodeToPos(node);
+            sj.position = this.nodeToPos(node);
             sj.parent = skin.joints.indexOf(node.parent.nodeInd);
             sj.bind = i;
 
             // Get invBindMatrix
-            var invBindMat = Util.getMatrix(gltfData,gltfData.accData[skin.invBindMatAcc], i);
+            var invBindMat = Util.getMatrix(
+                this.data,
+                this.data.accData[skin.invBindMatAcc],
+                i
+            );
             sj.transpos = Util.posFromMatrix(invBindMat);
+
             // Copied from the FBX loader... Oh no......
-            if( sj.transpos.sx != 1 || sj.transpos.sy != 1 || sj.transpos.sz != 1 ) {
-                // FIX : the scale is not correctly taken into account, this formula will extract it and fix things
+            if (
+                sj.transpos.sx != 1 ||
+                sj.transpos.sy != 1 ||
+                sj.transpos.sz != 1
+            ) {
+                // FIX: the scale is not correctly taken into account,
+                // this formula will extract it and fix things
                 var tmp = Util.posFromMatrix(invBindMat).toMatrix();
                 tmp.transpose();
                 var s = tmp.getScale();
                 tmp.prependScale(1 / s.x, 1 / s.y, 1 / s.z);
                 tmp.transpose();
-                sj.transpos = makePosition(tmp);
-                sj.transpos.sx = round(s.x);
-                sj.transpos.sy = round(s.y);
-                sj.transpos.sz = round(s.z);
+                sj.transpos = this.makePosition(tmp);
+                sj.transpos.sx = this.round(s.x);
+                sj.transpos.sy = this.round(s.y);
+                sj.transpos.sz = this.round(s.z);
             }
+
             // Ensure this matrix converted to a 'Position' correctly
             var testMat = sj.transpos.toMatrix();
             //var testPos = Position.fromMatrix(testMat);
             //if (!Util.matNear(invBindMat, testMat)) throw "";
-
             ret.joints.push(sj);
         }
-
 
         return ret;
     }
@@ -523,24 +570,26 @@ class HMDOut {
         if (posAcc.count % 3 != 0) throw "bad position accessor length";
         var numTris = Std.int(posAcc.count / 3);
         var ret = [];
-        for (i in 0...numTris) {
 
+        for (i in 0...numTris) {
             var ps = [];
             for (p in 0...3) {
                 ps.push(new Vector(
-                    Util.getFloat(gltfData, posAcc, i*3+p,0),
-                    Util.getFloat(gltfData, posAcc, i*3+p,1),
-                    Util.getFloat(gltfData, posAcc, i*3+p,2)));
+                    Util.getFloat(this.data, posAcc, i*3+p,0),
+                    Util.getFloat(this.data, posAcc, i*3+p,1),
+                    Util.getFloat(this.data, posAcc, i*3+p,2)));
             }
             var d0 = ps[1].sub(ps[0]);
             var d1 = ps[2].sub(ps[1]);
             ret.push(d0.cross(d1));
         }
-        return ret;
 
+        return ret;
     }
+
     function nodeToPos(node: NodeData): Position {
         var ret = new Position();
+
         if (node.trans != null) {
             ret.x = node.trans.x;
             ret.y = node.trans.y;
@@ -569,11 +618,15 @@ class HMDOut {
             ret.sy = 1.0;
             ret.sz = 1.0;
         }
+
         return ret;
     }
 
-    function generateTangents( posAcc: BuffAccess, normAcc: BuffAccess, uvAcc: BuffAccess ) : Array<Vector>
-    {
+    function generateTangents(
+        posAcc: BuffAccess,
+        normAcc: BuffAccess,
+        uvAcc: BuffAccess
+    ): Array<Vector> {
         /*
         #if (hl && !hl_disable_mikkt && (haxe_ver >= "4.0"))
         if (posAcc.count % 3 != 0) throw "";
@@ -601,19 +654,19 @@ class HMDOut {
 
         for (i in 0...posAcc.count) {
             // Position data
-            var x = Util.getFloat(gltfData, posAcc, i, 0);
+            var x = Util.getFloat(this.data, posAcc, i, 0);
             outBytes.writeFloat(x);
-            var y = Util.getFloat(gltfData, posAcc, i, 1);
+            var y = Util.getFloat(this.data, posAcc, i, 1);
             outBytes.writeFloat(y);
-            var z = Util.getFloat(gltfData, posAcc, i, 2);
+            var z = Util.getFloat(this.data, posAcc, i, 2);
             outBytes.writeFloat(z);
             bb.addPos(x, y, z);
 
             // Normal data
             if (hasNorm) {
-                outBytes.writeFloat(Util.getFloat(gltfData, norAcc, i, 0));
-                outBytes.writeFloat(Util.getFloat(gltfData, norAcc, i, 1));
-                outBytes.writeFloat(Util.getFloat(gltfData, norAcc, i, 2));
+                outBytes.writeFloat(Util.getFloat(this.data, norAcc, i, 0));
+                outBytes.writeFloat(Util.getFloat(this.data, norAcc, i, 1));
+                outBytes.writeFloat(Util.getFloat(this.data, norAcc, i, 2));
             } else {
                 var norm = genNormals[Std.int(i/3)];
                 outBytes.writeFloat(norm.x);
@@ -623,8 +676,8 @@ class HMDOut {
 
             // Tex coord data
             if (hasTex) {
-                outBytes.writeFloat(Util.getFloat(gltfData, texAcc, i, 0));
-                outBytes.writeFloat(Util.getFloat(gltfData, texAcc, i, 1));
+                outBytes.writeFloat(Util.getFloat(this.data, texAcc, i, 0));
+                outBytes.writeFloat(Util.getFloat(this.data, texAcc, i, 1));
             } else {
                 outBytes.writeFloat(0.5);
                 outBytes.writeFloat(0.5);
@@ -705,8 +758,11 @@ class HMDOut {
         return null;
     }
 
-
-    public static function emitHMD(name: String, directory: String, data: Data) {
+    public static function emitHMD(
+        name: String,
+        directory: String,
+        data: Data
+    ): hxd.fmt.hmd.Data {
         var out = new HMDOut(name, directory, data);
         return out.toHMD();
     }
