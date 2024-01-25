@@ -9,10 +9,15 @@ class Main {
         "car/ToyCar.gltf",
     ];
 
+    public static inline var REPS = 10;
+
     public static function main() {
         var totalTime = 0.0;
         for (filename in BENCHMARK_FILES) {
             Sys.print('Loading $filename ');
+
+            var duration = 0.0;
+
             var binary = switch (haxe.io.Path.extension(filename)) {
                 case "glb":  true;
                 case "gltf": false;
@@ -26,20 +31,25 @@ class Main {
             // relative to benchmark file dir
             var reldir = haxe.io.Path.directory(filename);
 
-            try {
-                var start = Sys.time();
-                var hmd = Main.loadGltf(filename, directory, reldir, contents, binary);
-                var duration = Sys.time() - start;
-
-                Sys.println('(${duration}s)');
-                totalTime += duration;
-            } catch (e: Dynamic) {
-                Sys.println(' ERROR: $e');
+            for (i in 0 ... REPS) {
+                try {
+                    var start = Sys.time();
+                    var hmd = Main.loadGltf(filename, directory, reldir, contents, binary);
+                    var dur = Sys.time() - start;
+                    totalTime += dur;
+                    duration += dur;
+                } catch (e: Dynamic) {
+                    Sys.println(' ERROR: $e');
+                    return;
+                }
             }
+
+            var avg = duration / REPS;
+            Sys.println('(${avg}s)');
         }
 
         var n = BENCHMARK_FILES.length;
-        Sys.println('Loaded $n files in ${totalTime}s');
+        Sys.println('Loaded $n files (x$REPS) in ${totalTime}s');
     }
 
     public static function loadGltf(
