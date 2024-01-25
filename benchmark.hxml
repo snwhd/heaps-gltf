@@ -1,0 +1,10 @@
+-cp benchmark
+
+-lib heaps
+-lib heaps-gltf
+-lib hlsdl
+
+-hl benchmark.hl
+-main Main
+
+-debug
