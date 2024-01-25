@@ -8,5 +8,6 @@
 -main Main
 
 --macro hxd.fmt.gltf.Macros.build()
+--macro addMetadata('@:build(hxd.fmt.gltf.Macros.patchModelCache())', 'h3d.prim.ModelCache')
 
 -debug
