@@ -88,7 +88,12 @@ class HMDOut {
                     }
                 }
 
-                generatedTangents = this.generateTangents(posAcc, normAcc, uvAcc, indices);
+                generatedTangents = this.generateTangents(
+                    posAcc,
+                    normAcc, // TODO: generated normals
+                    uvAcc,
+                    indices
+                );
                 if (generatedTangents == null) {
                     throw "failed to generate tangents";
                 }
@@ -655,16 +660,13 @@ class HMDOut {
     ): Array<Float> {
 
         #if (hl && !hl_disable_mikkt && (haxe_ver >= "4.0"))
-        // use hashlink mikktospace to generate tangents
-
-        /*
-        if (posAcc.count % 3 != 0) throw "";
-        if (normAcc.count % 3 != 0) throw "";
-
-
+        //
+        // hashlink - use built in mikktospace
+        //
+        if (normAcc == null) throw "TODO: generated normals";
 
         var m = new hl.Format.Mikktspace();
-        m.buffer = new hl.Bytes(8 * 4 * posAcc.count);
+        m.buffer = new hl.Bytes(8 * 4 * indices.length);
         m.stride = 8;
         m.xPos = 0;
         m.normalPos = 3;
@@ -679,66 +681,35 @@ class HMDOut {
         m.tangentPos = 0;
 
         var out = 0;
-
-
-        for (i in 0...posAcc.count) {
-            // Position data
-            var x = Util.getFloat(this.data, posAcc, i, 0);
-            outBytes.writeFloat(x);
-            var y = Util.getFloat(this.data, posAcc, i, 1);
-            outBytes.writeFloat(y);
-            var z = Util.getFloat(this.data, posAcc, i, 2);
-            outBytes.writeFloat(z);
-            bb.addPos(x, y, z);
-
-            // Normal data
-            if (hasNorm) {
-                outBytes.writeFloat(Util.getFloat(this.data, norAcc, i, 0));
-                outBytes.writeFloat(Util.getFloat(this.data, norAcc, i, 1));
-                outBytes.writeFloat(Util.getFloat(this.data, norAcc, i, 2));
-            } else {
-                var norm = genNormals[Std.int(i/3)];
-                outBytes.writeFloat(norm.x);
-                outBytes.writeFloat(norm.y);
-                outBytes.writeFloat(norm.z);
-            }
-
-            // Tex coord data
-            if (hasTex) {
-                outBytes.writeFloat(Util.getFloat(this.data, texAcc, i, 0));
-                outBytes.writeFloat(Util.getFloat(this.data, texAcc, i, 1));
-            } else {
-                outBytes.writeFloat(0.5);
-                outBytes.writeFloat(0.5);
-            }
-        }
-
-
-        for( i in 0...indices.length ) {
+        for (i in 0 ... indices.length) {
             var vidx = indices[i];
-            m.buffer[out++] = verts[vidx*3];
-            m.buffer[out++] = verts[vidx*3+1];
-            m.buffer[out++] = verts[vidx*3+2];
+            m.buffer[out++] = Util.getFloat(this.data, posAcc, vidx, 0);
+            m.buffer[out++] = Util.getFloat(this.data, posAcc, vidx, 1);
+            m.buffer[out++] = Util.getFloat(this.data, posAcc, vidx, 2);
 
-            m.buffer[out++] = normals[i*3];
-            m.buffer[out++] = normals[i*3+1];
-            m.buffer[out++] = normals[i*3+2];
-            var uidx = uvs[0].index[i];
+            m.buffer[out++] = Util.getFloat(this.data, normAcc, vidx, 0);
+            m.buffer[out++] = Util.getFloat(this.data, normAcc, vidx, 1);
+            m.buffer[out++] = Util.getFloat(this.data, normAcc, vidx, 2);
 
-            m.buffer[out++] = uvs[0].values[uidx*2];
-            m.buffer[out++] = uvs[0].values[uidx*2+1];
+            m.buffer[out++] = Util.getFloat(this.data, uvAcc, vidx, 0);
+            m.buffer[out++] = Util.getFloat(this.data, uvAcc, vidx, 1);
 
             m.tangents[i<<2] = 1;
-
             m.indexes[i] = i;
         }
 
         m.compute();
-        return m.tangents;
-        */
+
+        var arr: Array<Float> = [];
+        for (i in 0 ... indices.length*4) {
+            arr[i] = m.tangents[i];
+        }
+        return arr;
 
         #elseif (sys || nodejs)
-        // not hl, shell out to system mikktspace
+        //
+        // sys/nodejs - shell out to system mikktspace
+        //
 
         // find location for temporary files
         var tmp = Sys.getEnv("TMPDIR");
@@ -753,10 +724,7 @@ class HMDOut {
             "mikktspace_data" + now + "_" + nonce + ".bin",
         ]);
 
-        //
         // create mikktspace input data
-        //
-
         var outfile = filename + ".out";
         var dataBuffer = new haxe.io.BytesBuffer();
 
@@ -788,10 +756,7 @@ class HMDOut {
         // save
         sys.io.File.saveBytes(filename, dataBuffer.getBytes());
 
-        //
         // run mikktspace
-        //
-
         var ret = try Sys.command("mikktspace", [filename, outfile])
                   catch (e: Dynamic) -1;
         if (ret != 0) {
@@ -811,10 +776,10 @@ class HMDOut {
         return arr;
 
         #else
-        throw "Tangent generation is not supported on this platform";
-        #end
 
-        return null;
+        throw "Tangent generation is not supported on this platform";
+
+        #end
     }
 
     public static function emitHMD(
