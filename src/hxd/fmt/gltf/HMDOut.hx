@@ -134,9 +134,9 @@ class HMDOut {
                     outBytes.writeFloat(Util.getFloat(this.data, tanAcc, i, 1));
                     outBytes.writeFloat(Util.getFloat(this.data, tanAcc, i, 2));
                 } else if (hasGeneratedTangents) {
-                    outBytes.writeFloat(generatedTangents[i*3 + 0]);
-                    outBytes.writeFloat(generatedTangents[i*3 + 1]);
-                    outBytes.writeFloat(generatedTangents[i*3 + 2]);
+                    outBytes.writeFloat(generatedTangents[i*4 + 0]);
+                    outBytes.writeFloat(generatedTangents[i*4 + 1]);
+                    outBytes.writeFloat(generatedTangents[i*4 + 2]);
                 } else {
                     throw "need tangents";
                     // Reserve space for tangent data
