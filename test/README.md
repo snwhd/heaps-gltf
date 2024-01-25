@@ -12,7 +12,7 @@ can be easily removed by deleting the `"indices": 3` line.
 TODO: make this a bit simpler
 
 1. patch `HMDOut.hx` to print the x, y, z values of `generatedTangents`.
-1. copy `test.gltf` and `test.bin` in `res/`
-1. run `haxe sample.hl`
+1. copy `test.gltf` and `test.bin` into `res/`
+1. run `haxe sample.hxml`
 1. compare the printed tangents to `expected_values.txt`
 
