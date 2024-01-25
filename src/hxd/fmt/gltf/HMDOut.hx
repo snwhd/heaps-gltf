@@ -323,10 +323,14 @@ class HMDOut {
                         });
                     }
                 }
-            } else if (mat.color != null) {
-                hMat.diffuseTexture = Util.toColorString(mat.color);
+            // TODO: color strings require modification of
+            // h3d.prim.ModelCache or exporting these to a file
+            // } else if (mat.color != null) {
+            //     hMat.diffuseTexture = Util.toColorString(mat.color);
+            // } else {
+            //     hMat.diffuseTexture = Util.toColorString(0);
             } else {
-                hMat.diffuseTexture = Util.toColorString(0);
+                trace('embedded colors in gltf is not yet supported');
             }
             hMat.blendMode = None;
             materials.push(hMat);

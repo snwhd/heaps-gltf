@@ -6,6 +6,7 @@ class Main {
     public static var BENCHMARK_FILES = [
         "avo/Avocado.gltf",
         "water/WaterBottle.gltf",
+        "car/ToyCar.gltf",
     ];
 
     public static function main() {
