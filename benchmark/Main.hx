@@ -5,6 +5,7 @@ class Main {
     public static inline var BENCHMARK_FILE_DIR = "res/bench/";
     public static var BENCHMARK_FILES = [
         "avo/Avocado.gltf",
+        "water/WaterBottle.gltf",
     ];
 
     public static function main() {
