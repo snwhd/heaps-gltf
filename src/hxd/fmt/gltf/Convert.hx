@@ -32,16 +32,12 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
         }
         var relpath = filepath.substr(pos + directory.length + 2);
 
-        try {
-            // read/parse gltf and output hmd
-            var data = this.parseFunc(filename, filepath, this.srcBytes);
-            var hmd = HMDOut.emitHMD(filename, relpath, data);
-            var out = new haxe.io.BytesOutput();
-            new hxd.fmt.hmd.Writer(out).write(hmd);
-            this.save(out.getBytes());
-        } catch (e: Dynamic) {
-            throw Std.string(e) + " in " + srcPath;
-        }
+        // read/parse gltf and output hmd
+        var data = this.parseFunc(filename, filepath, this.srcBytes);
+        var hmd = HMDOut.emitHMD(filename, relpath, data);
+        var out = new haxe.io.BytesOutput();
+        new hxd.fmt.hmd.Writer(out).write(hmd);
+        this.save(out.getBytes());
     }
 
     // TODO: why is this hack needed
