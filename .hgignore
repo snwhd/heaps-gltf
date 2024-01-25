@@ -2,3 +2,4 @@
 \.swp$
 res/\.tmp/
 tmp/
+build/

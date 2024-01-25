@@ -4,7 +4,7 @@
 -lib heaps-gltf
 -lib hlsdl
 
--hl benchmark.hl
+-hl build/benchmark.hl
 -main Main
 
 -debug
