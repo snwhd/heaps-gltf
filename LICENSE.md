@@ -1,4 +1,6 @@
-Copyright (c) 2022 nspitko
+Copyright (c) 2020 [mchudleigh](https://github.com/mchudleigh/heaps)
+
+Copyright (c) 2022 [nspitko](https://github.com/nspitko/cerastes)
 
 Copyright (c) 2023 snwhd
 
