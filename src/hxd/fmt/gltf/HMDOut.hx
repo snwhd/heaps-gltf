@@ -279,11 +279,21 @@ class HMDOut {
                 }
 
                 // Emit the indices
+                var is32 = geo.vertexCount > 0x10000;
+
                 geo.indexPosition = outBytes.length;
                 geo.indexCounts = Lambda.map(indexList, (x) -> x.length);
-                for (inds in indexList) {
-                    for (i in inds) {
-                        outBytes.writeUInt16(i);
+                if (is32) {
+                    for (inds in indexList) {
+                        for (i in inds) {
+                            outBytes.writeInt32(i);
+                        }
+                    }
+                } else {
+                    for (inds in indexList) {
+                        for (i in inds) {
+                            outBytes.writeUInt16(i);
+                        }
                     }
                 }
             }

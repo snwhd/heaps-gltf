@@ -16,7 +16,3 @@ Simply include these two lines in your hxml:
 ## Resources
 
 Avocado.gltf and related files are public domain assets from [glTF-Sample-Models](https://github.com/KhronosGroup/glTF-Sample-Models/).
-
-## TODO
-
-* figure out why the toy car model crashes (index exceeds uint16)
