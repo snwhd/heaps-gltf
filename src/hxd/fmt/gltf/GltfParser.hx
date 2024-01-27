@@ -6,7 +6,7 @@ package hxd.fmt.gltf;
 //
 
 
-private enum abstract ComponentType(Int) {
+ enum abstract ComponentType(Int) {
     var BYTE   = 5120;
     var UBYTE  = 5121;
     var SHORT  = 5122;
@@ -16,7 +16,7 @@ private enum abstract ComponentType(Int) {
 }
 
 
-private enum abstract AccessorType(String) {
+ enum abstract AccessorType(String) {
     var SCALAR;
     var VEC2;
     var VEC3;
@@ -27,7 +27,7 @@ private enum abstract AccessorType(String) {
 }
 
 
-private enum abstract AttributeName(String) from String to String {
+ enum abstract AttributeName(String) from String to String {
     var POSITION;
     var NORMAL;
     var TANGENT;
@@ -41,7 +41,7 @@ private enum abstract AttributeName(String) from String to String {
 }
 
 
-private enum abstract GltfMeshPrimitiveMode(Int) from Int to Int {
+ enum abstract GltfMeshPrimitiveMode(Int) from Int to Int {
     var POINTS = 0;
     var LINE_STRIPS;
     var LINE_LOOPS;
@@ -52,13 +52,13 @@ private enum abstract GltfMeshPrimitiveMode(Int) from Int to Int {
 }
 
 
-private enum abstract SamplerMagnificationType(Int) from Int to Int {
+ enum abstract SamplerMagnificationType(Int) from Int to Int {
     var NEAREST = 9728;
     var LINEAR  = 9729;
 }
 
 
-private enum abstract SamplerMinificationType(Int) from Int to Int {
+ enum abstract SamplerMinificationType(Int) from Int to Int {
     var NEAREST = 9728;
     var LINEAR  = 9729;
     var NEAREST_MIPMAP_NEAREST = 9984;
@@ -68,27 +68,27 @@ private enum abstract SamplerMinificationType(Int) from Int to Int {
 }
 
 
-private enum abstract SamplerWrapType(Int) from Int to Int {
+ enum abstract SamplerWrapType(Int) from Int to Int {
     var CLAMP_TO_EDGE = 33071;
     var MIRRORED_REPEAT = 33648;
     var REPEAT = 10497;
 }
 
-private enum abstract AlphaMode(String) from String to String {
+ enum abstract AlphaMode(String) from String to String {
     var OPAQUE;
     var MASK;
     var BLEND;
 }
 
 
-private enum abstract AnimationInterpolationType(String) from String to String {
+ enum abstract AnimationInterpolationType(String) from String to String {
     var LINEAR;
     var STEP;
     var CUBICSPLINE;
 }
 
 
-private enum abstract CameraType(String) from String to String {
+ enum abstract CameraType(String) from String to String {
     var perspective;
     var orthographic;
 }
@@ -99,7 +99,7 @@ private enum abstract CameraType(String) from String to String {
 //
 
 
-private typedef GltfAsset = {
+ typedef GltfAsset = {
     // required fields
     var version: String;
 
@@ -109,7 +109,7 @@ private typedef GltfAsset = {
 }
 
 
-private typedef GltfBuffer = {
+ typedef GltfBuffer = {
     // required fields
     var byteLength: Int;
 
@@ -118,8 +118,8 @@ private typedef GltfBuffer = {
 }
 
 
-private var GLTF_BUFFER_VIEW_DEFAULT_BYTEOFFSET = 0;
-private typedef GltfBufferView = {
+ var GLTF_BUFFER_VIEW_DEFAULT_BYTEOFFSET = 0;
+ typedef GltfBufferView = {
     // required fields
     var buffer: Int;
     var byteLength: Int;
@@ -137,16 +137,16 @@ private typedef GltfBufferView = {
 }
 
 
-private var GLTF_NODE_DEFAULT_MATRIX = [
+ var GLTF_NODE_DEFAULT_MATRIX = [
     1.0, 0.0, 0.0, 0.0,
     0.0, 1.0, 0.0, 0.0,
     0.0, 0.0, 1.0, 0.0,
     0.0, 0.0, 0.0, 1.0,
 ];
-private var GLTF_NODE_DEFAULT_ROTATION = [0.0, 0.0, 0.0, 1.0];
-private var GLTF_NODE_DEFAULT_SCALE = [1.0, 1.0, 1.0];
-private var GLTF_NODE_DEFAULT_TRANSLATION = [0.0, 0.0, 0.0];
-private typedef GltfNode = {
+ var GLTF_NODE_DEFAULT_ROTATION = [0.0, 0.0, 0.0, 1.0];
+ var GLTF_NODE_DEFAULT_SCALE = [1.0, 1.0, 1.0];
+ var GLTF_NODE_DEFAULT_TRANSLATION = [0.0, 0.0, 0.0];
+ typedef GltfNode = {
     // no required fields
 
     // index<gltf.cameras>
@@ -176,7 +176,7 @@ private typedef GltfNode = {
 }
 
 
-private typedef GltfScene = {
+ typedef GltfScene = {
     // no required fields
 
     var name: String;
@@ -184,7 +184,7 @@ private typedef GltfScene = {
 }
 
 
-private typedef GltfSparseAccessorIndices = {
+ typedef GltfSparseAccessorIndices = {
     // required fields
     var bufferView: Int;
     var componentType: ComponentType;
@@ -193,7 +193,7 @@ private typedef GltfSparseAccessorIndices = {
 }
 
 
-private typedef GltfSparseAccessorValues = {
+ typedef GltfSparseAccessorValues = {
     // required fields
     var bufferView: Int;
 
@@ -201,7 +201,7 @@ private typedef GltfSparseAccessorValues = {
 }
 
 
-private typedef GltfSparseAccessor = {
+ typedef GltfSparseAccessor = {
     // required fields
     var count: Int;
     var indices: GltfSparseAccessorIndices;
@@ -209,7 +209,7 @@ private typedef GltfSparseAccessor = {
 }
 
 
-private typedef GltfAccessor = {
+ typedef GltfAccessor = {
     // required fields
     var componentType: ComponentType;
     var count: Int;
@@ -233,7 +233,7 @@ private typedef GltfAccessor = {
 }
 
 
-private typedef GltfMeshPrimitive = {
+ typedef GltfMeshPrimitive = {
     // required fields
     // map<attribute, index<gltf.accessor>>
     var attributes: Map<AttributeName, Int>;
@@ -250,7 +250,7 @@ private typedef GltfMeshPrimitive = {
 }
 
 
-private typedef GltfMesh = {
+ typedef GltfMesh = {
     // required fields
     var primitives: Array<GltfMeshPrimitive>;
 
@@ -259,7 +259,7 @@ private typedef GltfMesh = {
 }
 
 
-private typedef GltfSkin = {
+ typedef GltfSkin = {
     // require fields
     // index<gltf.accessors>
     var joints: Array<Int>;
@@ -274,7 +274,7 @@ private typedef GltfSkin = {
 }
 
 
-private typedef GltfTexture = {
+ typedef GltfTexture = {
     // no required fields
 
     var sampler: Int;
@@ -283,7 +283,7 @@ private typedef GltfTexture = {
 }
 
 
-private typedef GltfImage = {
+ typedef GltfImage = {
     // no required fields
 
     // must contain either uri or bufferView
@@ -299,7 +299,7 @@ private typedef GltfImage = {
 }
 
 
-private typedef GltfSampler = {
+ typedef GltfSampler = {
     // no required fields
 
     var magFilter: Null<SamplerMagnificationType>;
@@ -310,7 +310,7 @@ private typedef GltfSampler = {
 }
 
 
-private typedef GltfTextureInfo = {
+ typedef GltfTextureInfo = {
     // required fields
     var index: Int;
 
@@ -318,8 +318,8 @@ private typedef GltfTextureInfo = {
 }
 
 
-private var DEFAULT_PBR_COLOR_FACTOR = [1.0, 1.0, 1.0, 1.0];
-private typedef GltfPbrMetallicRoughness = {
+ var DEFAULT_PBR_COLOR_FACTOR = [1.0, 1.0, 1.0, 1.0];
+ typedef GltfPbrMetallicRoughness = {
     // no rquired fields
 
     var baseColorFactor: Array<Float>; // TODO = DEFAULT_PBR_COLOR_FACTOR;
@@ -330,7 +330,7 @@ private typedef GltfPbrMetallicRoughness = {
 }
 
 
-private typedef GltfMaterialNormalTexture = {
+ typedef GltfMaterialNormalTexture = {
     // required fields
     var index: Int;
 
@@ -339,7 +339,7 @@ private typedef GltfMaterialNormalTexture = {
 }
 
 
-private typedef GltfMaterialOcclusionTexture = {
+ typedef GltfMaterialOcclusionTexture = {
     // required fields
     var index: Int;
 
@@ -348,8 +348,8 @@ private typedef GltfMaterialOcclusionTexture = {
 }
 
 
-private var DEFAULT_MATERIAL_EMISSIVE_FACTOR = [0.0, 0.0, 0.0];
-private typedef GltfMaterial = {
+ var DEFAULT_MATERIAL_EMISSIVE_FACTOR = [0.0, 0.0, 0.0];
+ typedef GltfMaterial = {
     // no required fields
 
     var name: String;
@@ -364,7 +364,7 @@ private typedef GltfMaterial = {
 }
 
 
-private typedef GltfAnimationChannelTarget = {
+ typedef GltfAnimationChannelTarget = {
     // required fields
     var path: String;
 
@@ -372,14 +372,14 @@ private typedef GltfAnimationChannelTarget = {
 }
 
 
-private typedef GltfAnimationChannel = {
+ typedef GltfAnimationChannel = {
     // required fields
     var sampler: Int;
     var target: GltfAnimationChannelTarget;
 }
 
 
-private typedef GltfAnimationSampler = {
+ typedef GltfAnimationSampler = {
     // required fields
     var input: Int;
     var output: Int;
@@ -388,7 +388,7 @@ private typedef GltfAnimationSampler = {
 }
 
 
-private typedef GltfAnimation = {
+ typedef GltfAnimation = {
     // required fields
     var channels: GltfAnimationChannel;
     var samples: GltfAnimationSampler;
@@ -397,7 +397,7 @@ private typedef GltfAnimation = {
 }
 
 
-private typedef GltfCameraOrthographic = {
+ typedef GltfCameraOrthographic = {
     // require fields
     var xmag: Float;  // > 0
     var ymag: Float;  // > 0
@@ -406,7 +406,7 @@ private typedef GltfCameraOrthographic = {
 }
 
 
-private typedef GltfCameraPerspective = {
+ typedef GltfCameraPerspective = {
     // require fields
     var yfov: Float; // < pi
     var znear: Float;
@@ -416,7 +416,7 @@ private typedef GltfCameraPerspective = {
 }
 
 
-private typedef GltfCamera = {
+ typedef GltfCamera = {
     // required fields
     var type: CameraType;
 
@@ -426,7 +426,7 @@ private typedef GltfCamera = {
 }
 
 
-private typedef GltfData = {
+ typedef GltfData = {
     // required fields
     var asset: GltfAsset;
 
