@@ -16,6 +16,7 @@ class GltfToHmd {
     public function toHMD(): hxd.fmt.hmd.Data {
 
         var gltf = this.parser.gltf;
+        var bytes = this.parser.bytes;
         var out = new haxe.io.BytesOutput();
 
         //
@@ -34,7 +35,205 @@ class GltfToHmd {
         // load geometries
         //
 
+        // var primBounds = [];
+        // var dataPositions = [];
         var geometries: Array<hxd.fmt.hmd.Data.Geometry> = [];
+        var geometryMaterials: Array<Array<Int>> = [];
+        var meshToGeometry: Array<Array<Int>> = [];
+
+        for (meshIndex => mesh in gltf.meshes.keyValueIterator()) {
+
+            var meshGeoList = [];
+            meshToGeometry.push(meshGeoList);
+
+            for (prim in mesh.primitives) {
+
+                // TODO: deduplicate primitives?
+
+                var primDataStart = out.length;
+                // var dataPositions.push(out.length);
+                var bounds = new h3d.col.Bounds();
+                bounds.empty();
+                // primBounds.push(bounds);
+
+                var materialIndex = prim.material;
+
+                if (mode != null && mode != TRIANGLES) {
+                    throw "TODO: non-triangle prims";
+                }
+                // var mode = if (prim.mode != null)
+                //     ? prim.mode
+                //     : TRIANGLES;
+
+                //
+                // load accessors
+                //
+
+                function getAccessor(index: Int) {
+                    if (index < 0) return null;
+                    return new AccessorUtil(index, gltf.accessors[index]);
+                }
+
+                function getPrimAccessor(name: String) {
+                    var acc = prim.attributes.get(name);
+                    return acc != null ? acc : -1;
+                }
+
+                // TODO: verify accessor types
+                var posacc = getPrimAccessor("POSITION");
+                var noracc = getPrimAccessor("NORMAL");
+                var texacc = getPrimAccessor("TEXCOORD_0");
+                var tanacc = getPrimAccessor("TANGENT");
+                var indacc = getAccessor(prim.indices != null ? prim  = -1);
+                var jointAcc = getPrimAccessor("JOINTS_0");
+                var weightAcc = getPrimAccessor("WEIGHTS_0");
+
+                if (norAcc == null && indAcc != null) {
+                    throw "generating normals on indexed models is not supported";
+                }
+                // TODO: check index?
+                // if (jointsAcc != weightsAcc) {
+                //     throw "joints/weights mismatch";
+                // }
+
+                //
+                // generate normals & tangents
+                //
+
+                var indices: Array<Int> = [];
+                if (indAcc != null) {
+                    for (i in 0 ... indAcc.count) {
+                        indices.push(indAcc.index(bytes, i));
+                    }
+                } else {
+                    for (i in 0 ... posAcc.count) {
+                        indices.push(i);
+                    }
+                }
+
+                var generatedNormals = null;
+                if (norAcc == null) {
+                    // TODO
+                    generatedNormals = this.generateNormals(posAcc);
+                }
+
+                var generatedTangents = null;
+                if (tanAcc == null) {
+                    generatedTangents = this.generateTangents(
+                        posAcc,
+                        norAcc,
+                        texAcc,
+                        indices
+                    );
+                } else {
+                    // TODO: option to force generate tangents
+                }
+
+                //
+                // write data
+                //
+
+                for (i in 0 ... posAcc.count) {
+                    var x = posAcc.float(bytes, i, 0)
+                    var y = posAcc.float(bytes, i, 1)
+                    var z = posAcc.float(bytes, i, 2)
+                    out.writeFloat(x);
+                    out.writeFloat(y);
+                    out.writeFloat(z);
+                    bounds.addPos(x, y, z);
+
+                    if (norAcc != null) {
+                        out.writeFloat(norAcc.float(bytes, i, 0));
+                        out.writeFloat(norAcc.float(bytes, i, 1));
+                        out.writeFloat(norAcc.float(bytes, i, 2));
+                    } else {
+                        var norm = generatedNormals[Std.int(i/3)];
+                        out.writeFloat(norm.x);
+                        out.writeFloat(norm.y);
+                        out.writeFloat(norm.z);
+                    }
+
+                    if (tanAcc != null) {
+                        out.writeFloat(norAcc.float(bytes, i, 0));
+                        out.writeFloat(norAcc.float(bytes, i, 1));
+                        out.writeFloat(norAcc.float(bytes, i, 2));
+                    } else {
+                        var index = i * 4;
+                        out.writeFloat(generatedTangents[index++]);
+                        out.writeFloat(generatedTangents[index++]);
+                        out.writeFloat(generatedTangents[index]);
+                    }
+
+                    if (texAcc != null) {
+                        out.writeFloat(texAcc.getFloat(bytes, i, 0));
+                        out.writeFloat(texAcc.getFloat(bytes, i, 1));
+                    } else {
+                        out.writeFloat(0.5);
+                        out.writeFloat(0.5);
+                    }
+
+                    if (jointsAcc != null) {
+                        for (jIndex in 0 ... 4) {
+                            var joint = jointsAcc.int(bytes, i, jIndex);
+                            if (joint < 0) throw "negative joint index";
+                            out.writeByte(joint);
+                        }
+                    }
+
+                    if (weightsAcc != null) {
+                        for (wIndex in 0 ... 4) {
+                            var weight = wightsAcc.float(bytes, i, wIndex);
+                            if (Math.isNan(weight)) throw "weight is NaN";
+                            out.write(weight);
+                        }
+                    }
+                }
+
+                //
+                // create geometry
+                //
+
+                var geometry = new hxd.fmt.hmd.Geometry();
+                var mats = [];
+                meshGeoList.push(geometries.length);
+                geometryMaterials.push(mats);
+                geometries.push(geometry);
+
+                geometry.props = null;
+                geometry.vertexCount = posAcc.count;
+
+                // build vertex format
+                var format = [
+                    new GeometryFormat("position", DVec3),
+                    new GeometryFormat("normal", DVec3),
+                    new GeometryFormat("tangent", DVec3),
+                    new GeometryFormat("uv", DVec2),
+                ];
+                if (jointsAcc != null) {
+                    format.push(new GeometryFormat("indexes", DBytes4));
+                    format.push(new GeometryFormat("weights", DVec4));
+                }
+
+                geometry.vertexFormat = hxd.BufferFormat.make(format);
+                geometry.vertexPosition = primDataStart;
+                geometry.bounds = bounds;
+
+                // TODO: ?
+
+                var is32 = geometry.vertexCount > 0x10000;
+                geometry.indexPosition = out.length;
+                geometry.indexCounts = [indices.length];
+                if (i32) {
+                    for (i in indices) {
+                        out.writeInt32(i);
+                    }
+                } else {
+                    for (i in indices) {
+                        out.writeUInt16(i);
+                    }
+                }
+            }
+        }
 
         //
         // load animations
