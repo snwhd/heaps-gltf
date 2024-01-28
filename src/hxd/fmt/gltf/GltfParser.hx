@@ -393,7 +393,7 @@ package hxd.fmt.gltf;
     var channels: GltfAnimationChannel;
     var samples: GltfAnimationSampler;
 
-    var name: String;;
+    var name: String;
 }
 
 
@@ -464,11 +464,13 @@ class GltfParser {
 
     // public static function main() {
     //     var path = Sys.args()[0];
-    //     trace('checking $path');
     //     var content = sys.io.File.getContent(path);
-    //     var data: GltfData = haxe.Json.parse(content);
-    //     var n = data.meshes.length;
-    //     trace('$n meshes');
+    //     var parser = new GltfParser(
+    //         haxe.io.Path.withoutDirectory(path),
+    //         haxe.io.Path.directory(path),
+    //         content,
+    //         null, // TODO: binary chunk
+    //     );
     // }
 
     public var filename: String;
@@ -480,12 +482,12 @@ class GltfParser {
         filename: String,
         directory: String,
         textChunk: String,
-        ?data: haxe.io.Bytes
+        ?bytes: haxe.io.Bytes
     ): Void {
         this.filename = filename;
         this.directory = directory;
-        this.bytes = binChunk;
-        this.gltf = Json.parse(textChunk);
+        this.bytes = bytes;
+        this.gltf = haxe.Json.parse(textChunk);
         // TODO: default values?
     }
 
