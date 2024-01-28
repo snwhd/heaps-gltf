@@ -650,7 +650,127 @@ class GltfToHmd {
         texAcc: AccessorUtil,
         indices: Array<Int>
     ): Array<Float> {
-        throw "TODO";
+        #if (hl && !hl_disable_mikkt && (haxe_ver >= "4.0"))
+        //
+        // hashlink - use built in mikktospace
+        //
+        if (norAcc == null) throw "TODO: generated normals";
+
+        var m = new hl.Format.Mikktspace();
+        m.buffer = new hl.Bytes(8 * 4 * indices.length);
+        m.stride = 8;
+        m.xPos = 0;
+        m.normalPos = 3;
+        m.uvPos = 6;
+
+        m.indexes = new hl.Bytes(4 * indices.length);
+        m.indices = indices.length;
+
+        m.tangents = new hl.Bytes(4 * 4 * indices.length);
+        (m.tangents:hl.Bytes).fill(0,4 * 4 * indices.length,0);
+        m.tangentStride = 4;
+        m.tangentPos = 0;
+
+        var out = 0;
+        for (i in 0 ... indices.length) {
+            var vidx = indices[i];
+            m.buffer[out++] = posAcc.float(vidx, 0);
+            m.buffer[out++] = posAcc.float(vidx, 1);
+            m.buffer[out++] = posAcc.float(vidx, 2);
+
+            m.buffer[out++] = norAcc.float(vidx, 0);
+            m.buffer[out++] = norAcc.float(vidx, 1);
+            m.buffer[out++] = norAcc.float(vidx, 2);
+
+            m.buffer[out++] = texAcc.float(vidx, 0);
+            m.buffer[out++] = texAcc.float(vidx, 1);
+
+            m.tangents[i<<2] = 1;
+            m.indexes[i] = i;
+        }
+
+        m.compute();
+
+        var arr: Array<Float> = [];
+        for (i in 0 ... indices.length*4) {
+            arr[i] = m.tangents[i];
+        }
+        return arr;
+
+        #elseif (sys || nodejs)
+        //
+        // sys/nodejs - shell out to system mikktspace
+        //
+
+        // find location for temporary files
+        var tmp = Sys.getEnv("TMPDIR");
+        if  (tmp == null) tmp = Sys.getEnv("TMP");
+        if  (tmp == null) tmp = Sys.getEnv("TEMP");
+        if  (tmp == null) tmp = ".";
+
+        var now = Date.now().getTime();
+        var nonce = Std.random(0x1000000);
+        var filename = haxe.io.Path.join([
+            tmp,
+            "mikktspace_data" + now + "_" + nonce + ".bin",
+        ]);
+
+        // create mikktspace input data
+        var outfile = filename + ".out";
+        var dataBuffer = new haxe.io.BytesBuffer();
+
+        dataBuffer.addInt32(indices.length);
+        dataBuffer.addInt32(8); // ?
+        dataBuffer.addInt32(0); // ?
+        dataBuffer.addInt32(3); // ?
+        dataBuffer.addInt32(6); // ?
+
+        for (i in 0 ... indices.length) {
+            var vidx = indices[i];
+            dataBuffer.addFloat(posAcc.float(vidx, 0));
+            dataBuffer.addFloat(posAcc.float(vidx, 1));
+            dataBuffer.addFloat(posAcc.float(vidx, 2));
+
+            dataBuffer.addFloat(norAcc.float(vidx, 0));
+            dataBuffer.addFloat(norAcc.float(vidx, 1));
+            dataBuffer.addFloat(norAcc.float(vidx, 2));
+
+            dataBuffer.addFloat(uvAcc.float(vidx, 0));
+            dataBuffer.addFloat(uvAcc.float(vidx, 1));
+        }
+
+        dataBuffer.addInt32(indices.length);
+        for (i in 0 ... indices.length) {
+            dataBuffer.addInt32(i);
+        }
+
+        // save
+        sys.io.File.saveBytes(filename, dataBuffer.getBytes());
+
+        // run mikktspace
+        var ret = try Sys.command("mikktspace", [filename, outfile])
+                  catch (e: Dynamic) -1;
+        if (ret != 0) {
+            sys.FileSystem.deleteFile(filename);
+            throw "Failed to call 'mikktspace' executable required to generate tangent data. Please ensure it's in your PATH";
+        }
+
+        var arr = [];
+        var bytes = sys.io.File.getBytes(outfile);
+        for (i in 0 ... indices.length*4) {
+            arr[i] = bytes.getFloat(i << 2);
+        }
+
+        // cleanup
+        sys.FileSystem.deleteFile(filename);
+        sys.FileSystem.deleteFile(outfile);
+        return arr;
+
+        #else
+
+        throw "Tangent generation is not supported on this platform";
+
+        #end
     }
 
     private function nodeToPos(node: GltfNode): hxd.fmt.hmd.Data.Position {
