@@ -124,7 +124,6 @@ class GltfToHmd {
 
                 var generatedNormals = null;
                 if (norAcc == null) {
-                    // TODO
                     generatedNormals = this.generateNormals(posAcc);
                 }
 
@@ -276,7 +275,7 @@ class GltfToHmd {
                 if (image.uri != null) {
                     if (StringTools.startsWith(image.uri, "http")) throw "TODO";
                     hmdMaterial.diffuseTexture = haxe.io.Path.join([
-                        this.directory, // TODO: doesn't exist
+                        this.directory,
                         image.uri
                     ]);
                 } else if (image.bufferView != null) {
@@ -629,7 +628,13 @@ class GltfToHmd {
     }
 
     private function readWholeBuffer(bufferView: Int): haxe.io.Bytes {
-        throw "TODO";
+        var view = this.gltf.bufferViews[bufferView];
+        var buffer = this.gltf.buffers[view.buffer];
+        return AccessorUtil.readBuffer(
+            buffer,
+            this.bytes,
+            this.directory
+        );
     }
 
     private function sampleCurve(
@@ -641,7 +646,25 @@ class GltfToHmd {
     }
 
     private function generateNormals(posAcc: AccessorUtil): Array<h3d.Vector> {
-        throw "TODO";
+        if (posAcc.count % 3 != 0) throw "bad position accessor length";
+        var numTris = Std.int(posAcc.count / 3);
+        var ret = [];
+
+        for (i in 0...numTris) {
+            var ps = [];
+            for (p in 0 ... 3) {
+                ps.push(new h3d.Vector(
+                    posAcc.float(i*3 + p, 0),
+                    posAcc.float(i*3 + p, 1),
+                    posAcc.float(i*3 + p, 2)
+                ));
+            }
+            var d0 = ps[1].sub(ps[0]);
+            var d1 = ps[2].sub(ps[1]);
+            ret.push(d0.cross(d1));
+        }
+
+        return ret;
     }
 
     private function generateTangents(

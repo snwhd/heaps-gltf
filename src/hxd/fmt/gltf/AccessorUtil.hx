@@ -34,24 +34,7 @@ class AccessorUtil {
         var bufferView = gltf.bufferViews[this.acc.bufferView];
         var buffer = gltf.buffers[bufferView.buffer];
 
-        var uri = buffer.uri;
-        if (uri == null) {
-            // null buffer -> glb chunk
-            if (bufferView.buffer != 0) throw "glb chunk != 0";
-            if (glb == null) throw "missing glb chunk";
-            this.bytes = glb;
-        } else if (~/^data:(.*);base64,/.match(uri.substr(0, 60))) {
-            var dataStart = uri.indexOf(";base64,") + 8;
-            this.bytes = haxe.crypto.Base64.decode(uri.substr(dataStart));
-        } else {
-            #if sys
-            this.bytes = sys.io.File.getBytes(
-                haxe.io.Path.join([directory, uri])
-            );
-            #else
-            throw "TODO";
-            #end
-        }
+        this.bytes = AccessorUtil.readBuffer(buffer, glb, directory);
 
         if (this.bytes.length < buffer.byteLength) {
             throw "buffer too small";
@@ -112,6 +95,31 @@ class AccessorUtil {
             case USHORT: this.bytes.getUInt16(pos);
             case UINT:   this.bytes.getInt32(pos);
             case FLOAT:  throw "not an intaccessor";
+        }
+    }
+
+    public static function readBuffer(
+        buffer: GltfBuffer,
+        glb: haxe.io.Bytes,
+        directory: String
+    ): haxe.io.Bytes {
+        var uri = buffer.uri;
+        if (uri == null) {
+            // null buffer -> glb chunk
+            // TODO: if (bufferView.buffer != 0) throw "glb chunk != 0";
+            if (glb == null) throw "missing glb chunk";
+            return glb;
+        } else if (~/^data:(.*);base64,/.match(uri.substr(0, 60))) {
+            var dataStart = uri.indexOf(";base64,") + 8;
+            return haxe.crypto.Base64.decode(uri.substr(dataStart));
+        } else {
+            #if sys
+            return sys.io.File.getBytes(
+                haxe.io.Path.join([directory, uri])
+            );
+            #else
+            throw "TODO";
+            #end
         }
     }
 
