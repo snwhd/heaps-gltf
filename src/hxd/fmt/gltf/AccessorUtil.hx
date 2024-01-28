@@ -16,7 +16,7 @@ class AccessorUtil {
 
     private var stride: Int;
     private var compSize: Int;
-    private var typeSize: Int;
+    public var typeSize: Int;
     private var byteOffset: Int;
     private var maxPos: Int;
 

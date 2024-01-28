@@ -25,6 +25,7 @@ class GltfToHmd {
             content,
             null // TODO: load binary chunk
         );
+        convert.toHMD();
     }
 
     private static inline var ANIMATION_SAMPLE_RATE = 60.0;
@@ -454,6 +455,99 @@ class GltfToHmd {
             // parse data from gltf channels
             //
 
+            // used to calculate length & number of frames
+            var start = Math.POSITIVE_INFINITY;
+            var end = Math.NEGATIVE_INFINITY;
+
+            for (channel in anim.channels) {
+                var sampler = anim.samplers[channel.sampler];
+                var accessor = this.gltf.accessors[sampler.input];
+                if (accessor.max != null) {
+                    end = Math.max(end, accessor.max[0]);
+                }
+                if (accessor.min != null) {
+                    start = Math.min(start, accessor.min[0]);
+                }
+            }
+
+            // calculate number of frames
+            var length = end - start;
+            hmdAnimation.frames = Std.int((end - start) * ANIMATION_SAMPLE_RATE);
+
+            function sampleCurve(
+                sampId: Int,
+                numComps: Int,
+                isQuat: Bool
+            ): Array<Float> {
+                var samp = anim.samplers[sampId];
+                var inAcc = this.getAccessor(samp.input);
+                var outAcc = this.getAccessor(samp.output);
+                if (outAcc.typeSize != numComps) {
+                    throw "numComps mismatch";
+                }
+                var values = new Array();
+                values.resize(hmdAnimation.frames*outAcc.typeSize);
+                var vals0 = new Array();
+                vals0.resize(numComps);
+                var vals1 = new Array();
+                vals1.resize(numComps);
+                for (f in 0...hmdAnimation.frames) {
+                    var time = start + f*(1/Data.SAMPLE_RATE);
+                    var samp = this.interpAnimSample(inAcc, time);
+                    if (samp.ind1 == -1) {
+                        for (i in 0...numComps) {
+                            values[f*numComps+i] = outAcc.float(
+                                samp.ind0,
+                                i
+                            );
+                        }
+                        continue;
+                    }
+                    // Otherwise fill up the two values and interpolate
+                    for (i in 0...numComps) {
+                        vals0[i] = outAcc.float(
+                            samp.ind0,
+                            i
+                        );
+                        vals1[i] = outAcc.float(
+                            samp.ind1,
+                            i
+                        );
+                    }
+                    if (!isQuat) {
+                        // Simple lerp
+                        for (i in 0...numComps) {
+                            var v1 = vals0[i] * samp.weight;
+                            var v0 = vals1[i] * (1.0 - samp.weight);
+                            values[f*numComps+i] = v0 + v1;
+                        }
+                    } else {
+                        if (numComps != 4) throw "numComps != 4";
+                        // Quaternion weirdness
+                        var q0 = new h3d.Quat(
+                            vals0[0],
+                            vals0[1],
+                            vals0[2],
+                            vals0[3]
+                        );
+                        var q1 = new h3d.Quat(
+                            vals1[0],
+                            vals1[1],
+                            vals1[2],
+                            vals1[3]
+                        );
+
+                        q0.lerp(q0, q1, samp.weight, true);
+                        values[f*numComps + 0] = q0.x;
+                        values[f*numComps + 1] = q0.y;
+                        values[f*numComps + 2] = q0.z;
+                        values[f*numComps + 3] = q0.w;
+                    }
+
+                }
+                return values;
+            }
+
             function newNodeAnimationInfo(target: Int) {
                 return {
                     target: target, // TODO: remove target?
@@ -468,24 +562,20 @@ class GltfToHmd {
             // mape from node index to animation values
             var nodeAnimationMap : Map<Int, NodeAnimationInfo> = [];
 
-            // used to calculate length & number of frames
-            var start = Math.POSITIVE_INFINITY;
-            var end = Math.NEGATIVE_INFINITY;
-
             for (channel in anim.channels) {
 
                 // TODO: warn on missing target?
                 if (channel.target.node == null) continue;
 
-                // for animation length
-                var sampler = anim.samplers[channel.sampler];
-                var accessor = this.gltf.accessors[sampler.input];
-                if (accessor.max != null) {
-                    end = Math.max(end, accessor.max[0]);
-                }
-                if (accessor.min != null) {
-                    start = Math.min(start, accessor.min[0]);
-                }
+                // // for animation length
+                // var sampler = anim.samplers[channel.sampler];
+                // var accessor = this.gltf.accessors[sampler.input];
+                // if (accessor.max != null) {
+                //     end = Math.max(end, accessor.max[0]);
+                // }
+                // if (accessor.min != null) {
+                //     start = Math.min(start, accessor.min[0]);
+                // }
 
                 //
                 // extract animation curves for each node
@@ -509,7 +599,7 @@ class GltfToHmd {
                         if (info.translation != null) {
                             throw "multiple translations";
                         }
-                        info.translation = this.sampleCurve(
+                        info.translation = sampleCurve(
                             channel.sampler,
                             3,
                             false
@@ -517,7 +607,7 @@ class GltfToHmd {
                         info.hmdObject.flags.set(HasPosition);
                     case "rotation":
                         if (info.rotation != null) throw "multiple rotations";
-                        info.rotation = this.sampleCurve(
+                        info.rotation = sampleCurve(
                             channel.sampler,
                             4,
                             true
@@ -525,7 +615,7 @@ class GltfToHmd {
                         info.hmdObject.flags.set(HasRotation);
                     case "scale":
                         if (info.scale != null) throw "multiple scales";
-                        info.scale = this.sampleCurve(
+                        info.scale = sampleCurve(
                             channel.sampler,
                             3,
                             false
@@ -538,10 +628,6 @@ class GltfToHmd {
                         // info.hmdObject.flags.set(HasWeights);
                 }
             }
-
-            // calculate number of frames
-            var length = end - start;
-            hmdAnimation.frames = Std.int((end - start) * ANIMATION_SAMPLE_RATE);
 
             // load animation flags
             hmdAnimation.objects = [];
@@ -635,14 +721,6 @@ class GltfToHmd {
             this.bytes,
             this.directory
         );
-    }
-
-    private function sampleCurve(
-        sampleId: Int,
-        numComps: Int,
-        isQuat: Bool
-    ): Array<Float> {
-        throw "TODO";
     }
 
     private function generateNormals(posAcc: AccessorUtil): Array<h3d.Vector> {
@@ -817,6 +895,52 @@ class GltfToHmd {
             );
         }
         return null;
+    }
+
+    // Find the appropriate interval and weights from a time input curve
+    private function interpAnimSample(
+        inAcc: AccessorUtil,
+        time: Float
+    ): Dynamic { // TODO type
+        // Find the nearest input values
+        var lastVal =  inAcc.float(0, 0);
+        if (time <= lastVal) {
+            return { ind0: 0, weight: 1.0, ind1:-1};
+        }
+        // Iterate until we reach the appropriate interval
+        // TODO: something much less inefficient
+        var nextVal = 0.0;
+        var nextInd = 1;
+        while(nextInd < inAcc.count) {
+            nextVal = inAcc.float(nextInd, 0);
+            if (nextVal > time) {
+                break;
+            }
+            if (nextVal < lastVal) {
+                throw "nextVal decremented";
+            }
+            lastVal = nextVal;
+            nextInd++;
+        }
+        var lastInd = nextInd-1;
+
+        if (nextInd == inAcc.count) {
+            return { ind0: lastInd, weight: 1.0, ind1:-1};
+        }
+
+        if (nextVal < lastVal) throw "nextVal decremented";
+        if (lastVal > time) throw "lastVal too large";
+        if (time > nextVal) throw "nextVal too small";
+        if (nextVal == lastVal) {
+            //Divide by zero guard
+            return { ind0: lastInd, weight: 1.0, ind1:-1};
+        }
+
+        // calc weight
+        var w = (nextVal-time)/(nextVal-lastVal);
+
+        return { ind0: lastInd, weight: w, ind1:nextInd};
+
     }
 
     private function getPrimAccessor(
