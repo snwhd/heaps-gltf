@@ -1,16 +1,39 @@
 package hxd.fmt.gltf;
 
-import hxd.fmt.gltf.GltfParser;
+import hxd.fmt.gltf.GltfData;
 
 
 class GltfToHmd {
 
+    // TODO: remove me, just for testing
+    // public static function main() {
+    //     var path = Sys.args()[0];
+    //     var content = sys.io.File.getContent(path);
+    //     var convert = new GltfToHmd(
+    //         haxe.io.Path.withoutDirectory(path),
+    //         haxe.io.Path.directory(path),
+    //         content,
+    //         null // TODO: load binary chunk
+    //     );
+    // }
+
     private static inline var ANIMATION_SAMPLE_RATE = 60.0;
 
-    private var parser: GltfParser;
+    public var filename: String;
+    public var directory: String;
+    public var bytes: haxe.io.Bytes;
+    public var gltf: GltfData;
 
-    public function new(parser: GltfParser) {
-        this.parser = parser;
+    public function new(
+        filename: String,
+        directory: String,
+        textChunk: String,
+        ?bytes: haxe.io.Bytes
+    ): Void {
+        this.filename = filename;
+        this.directory = directory;
+        this.bytes = bytes;
+        this.gltf = haxe.Json.parse(textChunk);
     }
 
     public function toHMD(): hxd.fmt.hmd.Data {
