@@ -19,11 +19,6 @@ class GltfToHmd {
         var bytes = this.parser.bytes;
         var out = new haxe.io.BytesOutput();
 
-        //
-        // load models
-        //
-
-        var hmdModels: Array<hxd.fmt.hmd.Data.Model> = [];
 
         //
         // load geometries
@@ -183,6 +178,7 @@ class GltfToHmd {
                     }
                 }
 
+
                 //
                 // create geometry
                 //
@@ -228,6 +224,7 @@ class GltfToHmd {
                 }
             }
         }
+
 
         //
         // load materials
@@ -305,6 +302,102 @@ class GltfToHmd {
             hmdMaterial.blendMode = None;
             hmdMaterials.push(hmdMaterial);
         }
+
+
+        //
+        // load models
+        //
+
+        var root = new hxd.fmt.hmd.Data.Model();
+        root.name = "TODO: mode name";
+        root.props = null;
+        root.parent = -1;
+        root.follow = null;
+        root.position = new hxd.fmt.hmd.Position();
+        Util.initializePosition(root.position);
+        root.skin = null;
+        root.geometry = -1;
+        root.materials = null;
+
+        var hmdModels: Array<hxd.fmt.hmd.Data.Model> = [];
+        hmdModels.push(root);
+
+        // identify joints
+        var jointNodes: Map<Int, Bool> = [];
+        if (gltf.skins != null) for (skin in gltf.skins) {
+            for (jointIndex in skin.joints) {
+                jointNodes[jointIndex] = true;
+            }
+        }
+
+        function checkJoints(i) {
+            if (!jointNodes.exists(i)) throw "joint child is not a joint";
+
+            var node = gltf.nodes[i];
+            if (node.mesh != null) throw "joints with meshes not supported";
+
+            for (child in node.children) {
+                checkJoints(child);
+            }
+        }
+
+        // validate joints and preallocate node indices
+        var modelCount = hmdModels.length;
+        var outputIndices: Map<Int, Int> = [];
+        for (nodeIndex => node in gltf.nodes.keyValueIterator()) {
+            if (jointNodes.exists(nodeIndex)) {
+                checkJoints(nodeIndex);
+            } else {
+                outputIndices[nodeIndex] = modelCount++;
+            }
+        }
+        hmdModels.resize(modelCount);
+
+        for (nodeIndex => node in gltf.nodes.keyValueIterator()) {
+            if (jointNodes.exists(nodeIndex)) continue;
+
+            var hmdModel = new hxd.fmt.hmd.Model();
+            hmdModel.name = node.name;
+            hmdModel.props = null;
+            hmdModel.parent = node.parent == null ? 0 : outputIndices[node.parent];
+            hmdModel.follow = null;
+            hmdModel.position = this.nodeToPos(node);
+            hmdModel.skin = null;
+
+            hmdModel.geometry = -1;
+            hmdModel.materials = null;
+            if (node.mesh != null) {
+                if (node.skin != null) {
+                    model.skin = this.buildSkin(
+                        gltf.skins[node.skin],
+                        node.name
+                    );
+                }
+
+                var geometries = meshToGeometry[node.mesh];
+                if (geometries.length == 1) {
+                    // we can put a single geometry into the node
+                    model.geometry = geometries[0];
+                    model.materials = geometryMaterials[model.geometry];
+                } else for (geometryIndex in geometries) {
+                    // model per primitive
+                    var primModel = new hxd.fmt.hmd.Model();
+                    primModel.name = gltf.meshes[node.mesh].name;
+                    primModel.props = null;
+                    primModel.parent = outputIndices[nodeIndex];
+                    primModel.position = identPos; // TODO
+                    primModel.follow = null;
+                    primModel.skin = null;
+                    primModel.geometry = geometryIndex;
+                    primModel.materials = geometryMaterials[geometryIndex];
+                    // TODO: modelCount++ ?
+                    hmdModels.push(primModel);
+                }
+            }
+
+            hmdModels[outputIndices[nodeIndex]] = hmdModel;
+        }
+
 
         //
         // load animations
@@ -467,6 +560,7 @@ class GltfToHmd {
 
             hmdAnimations.push(hmdAnimation);
         }
+
 
         //
         // build hmd data
