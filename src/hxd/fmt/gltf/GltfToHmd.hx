@@ -23,13 +23,7 @@ class GltfToHmd {
         // load models
         //
 
-        var models: Array<hxd.fmt.hmd.Data.Model> = [];
-
-        //
-        // load materials
-        //
-
-        var materials: Array<hxd.fmt.hmd.Data.Material> = [];
+        var hmdModels: Array<hxd.fmt.hmd.Data.Model> = [];
 
         //
         // load geometries
@@ -37,7 +31,7 @@ class GltfToHmd {
 
         // var primBounds = [];
         // var dataPositions = [];
-        var geometries: Array<hxd.fmt.hmd.Data.Geometry> = [];
+        var hmdGeometries: Array<hxd.fmt.hmd.Data.Geometry> = [];
         var geometryMaterials: Array<Array<Int>> = [];
         var meshToGeometry: Array<Array<Int>> = [];
 
@@ -195,9 +189,9 @@ class GltfToHmd {
 
                 var geometry = new hxd.fmt.hmd.Geometry();
                 var mats = [];
-                meshGeoList.push(geometries.length);
+                meshGeoList.push(hmdGeometries.length);
                 geometryMaterials.push(mats);
-                geometries.push(geometry);
+                hmdGeometries.push(geometry);
 
                 geometry.props = null;
                 geometry.vertexCount = posAcc.count;
@@ -233,6 +227,83 @@ class GltfToHmd {
                     }
                 }
             }
+        }
+
+        //
+        // load materials
+        //
+
+        var hmdMaterials: Array<hxd.fmt.hmd.Data.Material> = [];
+        // var inlineImages = []; // TODO: remove?
+        // var materials = [];
+
+        for (materialIndex => material in gltf.materials.keyValueIterator()) {
+            var hmdMaterial = new hxd.fmt.hmd.Material();
+            hmdMaterial.name = material.name;
+
+            if (pbr.baseColorTexture != null) {
+                var bcTexture = pbr.baseColorTexture;
+                var coord = bcTexture.texCoord == null
+                    ? 0
+                    : bcTexture.texCoord;
+                if (coord != 0) {
+                    throw "TODO: nonzero texcoord";
+                }
+
+                var texture = gltf.textures[bcTexture.index];
+                if (texture.source == null) throw "TODO";
+                var image = gltf.images[texture.source];
+
+                if (image.uri != null) {
+                    if (StringTools.startsWith(image.uri, "http") throw "TODO";
+                    hmdMaterial.diffuseTexture = haxe.io.Path.join([
+                        this.directory, // TODO: doesn't exist
+                        image.uri
+                    ])
+                } else if (image.bufferView != null) {
+                    var ext = switch (image.mineType) {
+                        case "image/png": "PNG";
+                        case "image/jpeg": "JPG";
+                        case s: throw 'unknown image format: $s';
+                    }
+
+                    // TODO: bundle these and move to the end?
+                    // append inline images to binary data
+                    var start = outBytes.length;
+                    var length = image.bufferView.byteLength;
+                    hmdMaterial.diffuseTexture = '$ext@$start--$length';
+                    outBytes.writeBytes(this.readWholeBuffer(image.bufferView));
+
+                    // inlineImages.push({
+                    //     buf: image.bufferView.buffer,
+                    //     pos: image.bufferView.byteOffset,
+                    //     len: image.bufferView.byteLength,
+                    //     mat: materialIndex,
+                    //     ext: ext,
+                    // });
+                } else {
+                    throw "material imagem ust have buffer or uri";
+                }
+            #if !heaps_gltf_disable_material_patch
+            } else if (
+                material.color != null &&
+                material.pbrMetallicRoughness != null &&
+                material.pbrMetallicRoughness.baseColorFactor != null
+            ) {
+                var baseColor = material.pbrMetallicRoughness.baseColorFactor;
+                if (baseColor.length < 3) {
+                    throw "invalid material color";
+                }
+                hmdMaterial.diffuseTexture = Util.toColorString(
+                    h3d.Vector4.fromArray(baseColor).toColor()
+                );
+            } else {
+                hmdMaterial.diffuseTexture = Util.toColorString(0);
+            #end
+            }
+
+            hmdMaterial.blendMode = None;
+            hmdMaterials.push(hmdMaterial);
         }
 
         //
