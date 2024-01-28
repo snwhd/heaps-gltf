@@ -3,19 +3,29 @@ package hxd.fmt.gltf;
 import hxd.fmt.gltf.GltfData;
 
 
+typedef NodeAnimationInfo = {
+    var target: Int;
+    var rotation: Array<Float>;
+    var scale: Array<Float>;
+    var translation: Array<Float>;
+    var weights: Array<Float>;
+    var hmdObject: hxd.fmt.hmd.Data.AnimationObject;
+};
+
+
 class GltfToHmd {
 
     // TODO: remove me, just for testing
-    // public static function main() {
-    //     var path = Sys.args()[0];
-    //     var content = sys.io.File.getContent(path);
-    //     var convert = new GltfToHmd(
-    //         haxe.io.Path.withoutDirectory(path),
-    //         haxe.io.Path.directory(path),
-    //         content,
-    //         null // TODO: load binary chunk
-    //     );
-    // }
+    public static function main() {
+        var path = Sys.args()[0];
+        var content = sys.io.File.getContent(path);
+        var convert = new GltfToHmd(
+            haxe.io.Path.withoutDirectory(path),
+            haxe.io.Path.directory(path),
+            content,
+            null // TODO: load binary chunk
+        );
+    }
 
     private static inline var ANIMATION_SAMPLE_RATE = 60.0;
 
@@ -38,10 +48,7 @@ class GltfToHmd {
 
     public function toHMD(): hxd.fmt.hmd.Data {
 
-        var gltf = this.parser.gltf;
-        var bytes = this.parser.bytes;
         var out = new haxe.io.BytesOutput();
-
 
         //
         // load geometries
@@ -53,7 +60,7 @@ class GltfToHmd {
         var geometryMaterials: Array<Array<Int>> = [];
         var meshToGeometry: Array<Array<Int>> = [];
 
-        for (meshIndex => mesh in gltf.meshes.keyValueIterator()) {
+        for (meshIndex => mesh in this.gltf.meshes.keyValueIterator()) {
 
             var meshGeoList = [];
             meshToGeometry.push(meshGeoList);
@@ -83,7 +90,7 @@ class GltfToHmd {
 
                 function getAccessor(index: Int) {
                     if (index < 0) return null;
-                    return new AccessorUtil(index, gltf.accessors[index]);
+                    return new AccessorUtil(index, this.gltf.accessors[index]);
                 }
 
                 function getPrimAccessor(name: String) {
@@ -96,7 +103,9 @@ class GltfToHmd {
                 var noracc = getPrimAccessor("NORMAL");
                 var texacc = getPrimAccessor("TEXCOORD_0");
                 var tanacc = getPrimAccessor("TANGENT");
-                var indacc = getAccessor(prim.indices != null ? prim  = -1);
+                var indacc = getAccessor(
+                    prim.indices != null ? prim.indices : -1
+                );
                 var jointAcc = getPrimAccessor("JOINTS_0");
                 var weightAcc = getPrimAccessor("WEIGHTS_0");
 
@@ -115,7 +124,7 @@ class GltfToHmd {
                 var indices: Array<Int> = [];
                 if (indAcc != null) {
                     for (i in 0 ... indAcc.count) {
-                        indices.push(indAcc.index(bytes, i));
+                        indices.push(indAcc.index(this.bytes, i));
                     }
                 } else {
                     for (i in 0 ... posAcc.count) {
@@ -146,18 +155,18 @@ class GltfToHmd {
                 //
 
                 for (i in 0 ... posAcc.count) {
-                    var x = posAcc.float(bytes, i, 0)
-                    var y = posAcc.float(bytes, i, 1)
-                    var z = posAcc.float(bytes, i, 2)
+                    var x = posAcc.float(this.bytes, i, 0);
+                    var y = posAcc.float(this.bytes, i, 1);
+                    var z = posAcc.float(this.bytes, i, 2);
                     out.writeFloat(x);
                     out.writeFloat(y);
                     out.writeFloat(z);
                     bounds.addPos(x, y, z);
 
                     if (norAcc != null) {
-                        out.writeFloat(norAcc.float(bytes, i, 0));
-                        out.writeFloat(norAcc.float(bytes, i, 1));
-                        out.writeFloat(norAcc.float(bytes, i, 2));
+                        out.writeFloat(norAcc.float(this.bytes, i, 0));
+                        out.writeFloat(norAcc.float(this.bytes, i, 1));
+                        out.writeFloat(norAcc.float(this.bytes, i, 2));
                     } else {
                         var norm = generatedNormals[Std.int(i/3)];
                         out.writeFloat(norm.x);
@@ -166,9 +175,9 @@ class GltfToHmd {
                     }
 
                     if (tanAcc != null) {
-                        out.writeFloat(norAcc.float(bytes, i, 0));
-                        out.writeFloat(norAcc.float(bytes, i, 1));
-                        out.writeFloat(norAcc.float(bytes, i, 2));
+                        out.writeFloat(norAcc.float(this.bytes, i, 0));
+                        out.writeFloat(norAcc.float(this.bytes, i, 1));
+                        out.writeFloat(norAcc.float(this.bytes, i, 2));
                     } else {
                         var index = i * 4;
                         out.writeFloat(generatedTangents[index++]);
@@ -177,8 +186,8 @@ class GltfToHmd {
                     }
 
                     if (texAcc != null) {
-                        out.writeFloat(texAcc.getFloat(bytes, i, 0));
-                        out.writeFloat(texAcc.getFloat(bytes, i, 1));
+                        out.writeFloat(texAcc.getFloat(this.bytes, i, 0));
+                        out.writeFloat(texAcc.getFloat(this.bytes, i, 1));
                     } else {
                         out.writeFloat(0.5);
                         out.writeFloat(0.5);
@@ -186,7 +195,7 @@ class GltfToHmd {
 
                     if (jointsAcc != null) {
                         for (jIndex in 0 ... 4) {
-                            var joint = jointsAcc.int(bytes, i, jIndex);
+                            var joint = jointsAcc.int(this.bytes, i, jIndex);
                             if (joint < 0) throw "negative joint index";
                             out.writeByte(joint);
                         }
@@ -194,7 +203,7 @@ class GltfToHmd {
 
                     if (weightsAcc != null) {
                         for (wIndex in 0 ... 4) {
-                            var weight = wightsAcc.float(bytes, i, wIndex);
+                            var weight = wightsAcc.float(this.bytes, i, wIndex);
                             if (Math.isNan(weight)) throw "weight is NaN";
                             out.write(weight);
                         }
@@ -257,7 +266,7 @@ class GltfToHmd {
         // var inlineImages = []; // TODO: remove?
         // var materials = [];
 
-        for (materialIndex => material in gltf.materials.keyValueIterator()) {
+        for (materialIndex => material in this.gltf.materials.keyValueIterator()) {
             var hmdMaterial = new hxd.fmt.hmd.Material();
             hmdMaterial.name = material.name;
 
@@ -270,16 +279,16 @@ class GltfToHmd {
                     throw "TODO: nonzero texcoord";
                 }
 
-                var texture = gltf.textures[bcTexture.index];
+                var texture = this.gltf.textures[bcTexture.index];
                 if (texture.source == null) throw "TODO";
-                var image = gltf.images[texture.source];
+                var image = this.gltf.images[texture.source];
 
                 if (image.uri != null) {
-                    if (StringTools.startsWith(image.uri, "http") throw "TODO";
+                    if (StringTools.startsWith(image.uri, "http")) throw "TODO";
                     hmdMaterial.diffuseTexture = haxe.io.Path.join([
                         this.directory, // TODO: doesn't exist
                         image.uri
-                    ])
+                    ]);
                 } else if (image.bufferView != null) {
                     var ext = switch (image.mineType) {
                         case "image/png": "PNG";
@@ -347,7 +356,7 @@ class GltfToHmd {
 
         // identify joints
         var jointNodes: Map<Int, Bool> = [];
-        if (gltf.skins != null) for (skin in gltf.skins) {
+        if (this.gltf.skins != null) for (skin in this.gltf.skins) {
             for (jointIndex in skin.joints) {
                 jointNodes[jointIndex] = true;
             }
@@ -356,7 +365,7 @@ class GltfToHmd {
         function checkJoints(i) {
             if (!jointNodes.exists(i)) throw "joint child is not a joint";
 
-            var node = gltf.nodes[i];
+            var node = this.gltf.nodes[i];
             if (node.mesh != null) throw "joints with meshes not supported";
 
             for (child in node.children) {
@@ -367,7 +376,7 @@ class GltfToHmd {
         // validate joints and preallocate node indices
         var modelCount = hmdModels.length;
         var outputIndices: Map<Int, Int> = [];
-        for (nodeIndex => node in gltf.nodes.keyValueIterator()) {
+        for (nodeIndex => node in this.gltf.nodes.keyValueIterator()) {
             if (jointNodes.exists(nodeIndex)) {
                 checkJoints(nodeIndex);
             } else {
@@ -376,7 +385,7 @@ class GltfToHmd {
         }
         hmdModels.resize(modelCount);
 
-        for (nodeIndex => node in gltf.nodes.keyValueIterator()) {
+        for (nodeIndex => node in this.gltf.nodes.keyValueIterator()) {
             if (jointNodes.exists(nodeIndex)) continue;
 
             var hmdModel = new hxd.fmt.hmd.Model();
@@ -392,7 +401,7 @@ class GltfToHmd {
             if (node.mesh != null) {
                 if (node.skin != null) {
                     model.skin = this.buildSkin(
-                        gltf.skins[node.skin],
+                        this.gltf.skins[node.skin],
                         node.name
                     );
                 }
@@ -405,7 +414,7 @@ class GltfToHmd {
                 } else for (geometryIndex in geometries) {
                     // model per primitive
                     var primModel = new hxd.fmt.hmd.Model();
-                    primModel.name = gltf.meshes[node.mesh].name;
+                    primModel.name = this.gltf.meshes[node.mesh].name;
                     primModel.props = null;
                     primModel.parent = outputIndices[nodeIndex];
                     primModel.position = identPos; // TODO
@@ -427,7 +436,7 @@ class GltfToHmd {
         //
 
         var hmdAnimations: Array<hxd.fmt.hmd.Animation> = [];
-        if (gltf.animations != null) for (animation in gltf.animations) {
+        if (this.gltf.animations) for (animation in this.gltf.animations) {
 
             //
             // constant data
@@ -444,15 +453,6 @@ class GltfToHmd {
             // parse data from gltf channels
             //
 
-            typedef NodeAnimationInfo = {
-                var target: Int;
-                var rotation: GltfAnimationTarget;
-                var scale: GltfAnimationTarget;
-                var translation: GltfAnimationTarget;
-                var weights: GltfAnimationTarget;
-                var hmdObject: hxd.fmt.hmd.Data.AnimationObject;
-            };
-
             function newNodeAnimationInfo(target: Int) {
                 return {
                     target: target, // TODO: remove target?
@@ -460,7 +460,7 @@ class GltfToHmd {
                     scale: null,
                     translation: null,
                     weights: null,
-                    hmdObject = new hxd.fmt.hmd.Data.AnimationObject(),
+                    hmdObject: new hxd.fmt.hmd.Data.AnimationObject(),
                 };
             }
 
@@ -477,8 +477,8 @@ class GltfToHmd {
                 if (channel.target.node == null) continue;
 
                 // for animation length
-                var sampler = gltf.getSampler(channel.sampler);
-                var accessor = gltf.getAccessor(channel.input);
+                var sampler = this.gltf.getSampler(channel.sampler);
+                var accessor = this.gltf.getAccessor(channel.input);
                 if (accessor.max != null) {
                     end = Math.max(end, accessor.max);
                 }
@@ -500,21 +500,35 @@ class GltfToHmd {
 
                     // save to output object
                     hmdAnimation.objects.push(info.hmdObjects);
-                    info.hmdObject.name = gltf.nodes[target.node].name;
+                    info.hmdObject.name = this.gltf.nodes[target.node].name;
                 }
 
                 switch (channel.target.path) {
                     case "translation":
-                        if (info.translation != null) throw "multiple translations";
-                        info.translation = sampleCurve(channel.sampler, 3, false);
+                        if (info.translation != null) {
+                            throw "multiple translations";
+                        }
+                        info.translation = this.sampleCurve(
+                            channel.sampler,
+                            3,
+                            false
+                        );
                         info.hmdObject.flags.set(HasPosition);
                     case "rotation":
                         if (info.rotation != null) throw "multiple rotations";
-                        info.rotation = sampleCurve(channel.sampler, 4, true);
+                        info.rotation = this.sampleCurve(
+                            channel.sampler,
+                            4,
+                            true
+                        );
                         hmdAnimationObject.flags.set(HasRotation);
                     case "scale":
                         if (info.scale != null) throw "multiple scales";
-                        info.scale = sampleCurve(channel.sampler, 3, false);
+                        info.scale = this.sampleCurve(
+                            channel.sampler,
+                            3,
+                            false
+                        );
                         hmdAnimationObject.flags.set(HasScale);
                     case "weights":
                         if (info.weights) throw "multiple weights";
@@ -610,5 +624,14 @@ class GltfToHmd {
         data.dataPosition = 0;
         data.data = out.getBytes();
         return data;
+    }
+
+
+    private function sampleCurve(
+        sampleId: Int,
+        numComps: Int,
+        isQuat: Bool
+    ): Array<Float> {
+        throw "TODO";
     }
 }
