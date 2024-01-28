@@ -111,7 +111,7 @@ package hxd.fmt.gltf;
 
  typedef GltfBuffer = {
     // required fields
-    var byteLength: Int;
+    var byteLength: Null<Int>;
 
     var uri: String;
     var name: String;
@@ -121,17 +121,17 @@ package hxd.fmt.gltf;
  var GLTF_BUFFER_VIEW_DEFAULT_BYTEOFFSET = 0;
  typedef GltfBufferView = {
     // required fields
-    var buffer: Int;
-    var byteLength: Int;
+    var buffer: Null<Int>;
+    var byteLength: Null<Int>;
 
-    var byteOffset: Int; // = GLTF_BUFFER_VIEW_DEFAULT_BYTEOFFSET
+    var byteOffset: Null<Int>; // = GLTF_BUFFER_VIEW_DEFAULT_BYTEOFFSET
 
     // only used for vertex attribute data
-    var byteStride: Int;
+    var byteStride: Null<Int>;
 
     // for vertex indices this is element array buffer
     // for attribute accessors this is array buffer
-    var target: Int;
+    var target: Null<Int>;
 
     var name: String;
 }
@@ -150,7 +150,7 @@ package hxd.fmt.gltf;
     // no required fields
 
     // index<gltf.cameras>
-    var camera: Int;
+    var camera: Null<Int>;
 
     // index<gltf.nodes>
     var children: Array<Int>;
@@ -163,9 +163,9 @@ package hxd.fmt.gltf;
     var translation: Array<Float>; // = GLTF_NODE_DEFAULT_TRANSLATION;
 
     // index<gtlf.meshes>
-    var mesh: Int;
+    var mesh: Null<Int>;
     // index<gltf.skins>
-    var skin: Int;
+    var skin: Null<Int>;
 
     // local space transform
     // not available if referenced by animations
@@ -186,24 +186,24 @@ package hxd.fmt.gltf;
 
  typedef GltfSparseAccessorIndices = {
     // required fields
-    var bufferView: Int;
+    var bufferView: Null<Int>;
     var componentType: ComponentType;
 
-    var byteOffset: Int; // TODO = 0;
+    var byteOffset: Null<Int>; // TODO = 0;
 }
 
 
  typedef GltfSparseAccessorValues = {
     // required fields
-    var bufferView: Int;
+    var bufferView: Null<Int>;
 
-    var byteOffset: Int; // TODO = 0;
+    var byteOffset: Null<Int>; // TODO = 0;
 }
 
 
  typedef GltfSparseAccessor = {
     // required fields
-    var count: Int;
+    var count: Null<Int>;
     var indices: GltfSparseAccessorIndices;
     var values: GltfSparseAccessorValues;
 }
@@ -212,15 +212,15 @@ package hxd.fmt.gltf;
  typedef GltfAccessor = {
     // required fields
     var componentType: ComponentType;
-    var count: Int;
+    var count: Null<Int>;
     var type: AccessorType;
 
     // index<gltf.bufferViews>
-    var bufferView: Int;
+    var bufferView: Null<Int>;
 
     // starting point, then steps are defined by bufferView.byteStride for
     // vertex data, and tightly packed for other data types
-    var byteOffset: Int; // TODO = 0;
+    var byteOffset: Null<Int>; // TODO = 0;
 
     var normalized: Bool; // TODO = false;
 
@@ -238,12 +238,12 @@ package hxd.fmt.gltf;
     // map<attribute, index<gltf.accessor>>
     var attributes: Map<AttributeName, Int>;
 
-    var indices: Int;
+    var indices: Null<Int>;
 
     // index<gltf.materials>
-    var material: Int;
+    var material: Null<Int>;
 
-    var mode: GltfMeshPrimitiveMode; // TODO = TRIANGLES;
+    var mode: Null<GltfMeshPrimitiveMode>;
 
     // morph targets
     var targets: Map<AttributeName, Int>;
@@ -268,7 +268,7 @@ package hxd.fmt.gltf;
     var inverseBindMatrices: Array<Int>;
 
     // index<gltf.nodes>
-    var skeleton: Int;
+    var skeleton: Null<Int>;
 
     var name: String;
 }
@@ -277,8 +277,8 @@ package hxd.fmt.gltf;
  typedef GltfTexture = {
     // no required fields
 
-    var sampler: Int;
-    var source: Int;
+    var sampler: Null<Int>;
+    var source: Null<Int>;
     var name: String;
 }
 
@@ -293,7 +293,7 @@ package hxd.fmt.gltf;
     var mimeType: String;
 
     // index<gltf.bufferViews>
-    var bufferView: Int;
+    var bufferView: Null<Int>;
 
     var name: String;
 }
@@ -312,9 +312,9 @@ package hxd.fmt.gltf;
 
  typedef GltfTextureInfo = {
     // required fields
-    var index: Int;
+    var index: Null<Int>;
 
-    var texCoord: Int; // TODO = 0;
+    var texCoord: Null<Int>; // TODO = 0;
 }
 
 
@@ -332,18 +332,18 @@ package hxd.fmt.gltf;
 
  typedef GltfMaterialNormalTexture = {
     // required fields
-    var index: Int;
+    var index: Null<Int>;
 
-    var texCoord: Int; // TODO = 0;
+    var texCoord: Null<Int>; // TODO = 0;
     var scale: Float;  // TODO = 1.0;
 }
 
 
  typedef GltfMaterialOcclusionTexture = {
     // required fields
-    var index: Int;
+    var index: Null<Int>;
 
-    var texCoord: Int;   // TODO = 0;
+    var texCoord: Null<Int>;   // TODO = 0;
     var strength: Float; // TODO = 1.0;
 }
 
@@ -368,21 +368,21 @@ package hxd.fmt.gltf;
     // required fields
     var path: String;
 
-    var node: Int;
+    var node: Null<Int>;
 }
 
 
  typedef GltfAnimationChannel = {
     // required fields
-    var sampler: Int;
+    var sampler: Null<Int>;
     var target: GltfAnimationChannelTarget;
 }
 
 
  typedef GltfAnimationSampler = {
     // required fields
-    var input: Int;
-    var output: Int;
+    var input: Null<Int>;
+    var output: Null<Int>;
 
     var string: AnimationInterpolationType; // TODO = LINEAR
 }
@@ -439,7 +439,7 @@ package hxd.fmt.gltf;
 
     var nodes: Array<GltfNode>;
     var scenes: Array<GltfScene>;
-    var scene: Int;
+    var scene: Null<Int>;
 
     var meshes: Array<GltfMesh>;
     var skins: Array<GltfSkin>;

@@ -3,9 +3,6 @@ package hxd.fmt.gltf;
 import hxd.fmt.gltf.GltfData;
 
 
-typedef AccessorUtil = Dynamic; // TODO
-
-
 typedef NodeAnimationInfo = {
     var target: Int;
     var rotation: Array<Float>;
@@ -117,7 +114,7 @@ class GltfToHmd {
                 var indices: Array<Int> = [];
                 if (indAcc != null) {
                     for (i in 0 ... indAcc.count) {
-                        indices.push(indAcc.index(this.bytes, i));
+                        indices.push(indAcc.index(i));
                     }
                 } else {
                     for (i in 0 ... posAcc.count) {
@@ -148,18 +145,18 @@ class GltfToHmd {
                 //
 
                 for (i in 0 ... posAcc.count) {
-                    var x = posAcc.float(this.bytes, i, 0);
-                    var y = posAcc.float(this.bytes, i, 1);
-                    var z = posAcc.float(this.bytes, i, 2);
+                    var x = posAcc.float(i, 0);
+                    var y = posAcc.float(i, 1);
+                    var z = posAcc.float(i, 2);
                     out.writeFloat(x);
                     out.writeFloat(y);
                     out.writeFloat(z);
                     bounds.addPos(x, y, z);
 
                     if (norAcc != null) {
-                        out.writeFloat(norAcc.float(this.bytes, i, 0));
-                        out.writeFloat(norAcc.float(this.bytes, i, 1));
-                        out.writeFloat(norAcc.float(this.bytes, i, 2));
+                        out.writeFloat(norAcc.float(i, 0));
+                        out.writeFloat(norAcc.float(i, 1));
+                        out.writeFloat(norAcc.float(i, 2));
                     } else {
                         var norm = generatedNormals[Std.int(i/3)];
                         out.writeFloat(norm.x);
@@ -168,9 +165,9 @@ class GltfToHmd {
                     }
 
                     if (tanAcc != null) {
-                        out.writeFloat(norAcc.float(this.bytes, i, 0));
-                        out.writeFloat(norAcc.float(this.bytes, i, 1));
-                        out.writeFloat(norAcc.float(this.bytes, i, 2));
+                        out.writeFloat(norAcc.float(i, 0));
+                        out.writeFloat(norAcc.float(i, 1));
+                        out.writeFloat(norAcc.float(i, 2));
                     } else {
                         var index = i * 4;
                         out.writeFloat(generatedTangents[index++]);
@@ -179,8 +176,8 @@ class GltfToHmd {
                     }
 
                     if (texAcc != null) {
-                        out.writeFloat(texAcc.getFloat(this.bytes, i, 0));
-                        out.writeFloat(texAcc.getFloat(this.bytes, i, 1));
+                        out.writeFloat(texAcc.float(i, 0));
+                        out.writeFloat(texAcc.float(i, 1));
                     } else {
                         out.writeFloat(0.5);
                         out.writeFloat(0.5);
@@ -188,7 +185,7 @@ class GltfToHmd {
 
                     if (jointAcc != null) {
                         for (jIndex in 0 ... 4) {
-                            var joint = jointAcc.int(this.bytes, i, jIndex);
+                            var joint = jointAcc.int(i, jIndex);
                             if (joint < 0) throw "negative joint index";
                             out.writeByte(joint);
                         }
@@ -196,7 +193,7 @@ class GltfToHmd {
 
                     if (weightAcc != null) {
                         for (wIndex in 0 ... 4) {
-                            var weight = weightAcc.float(this.bytes, i, wIndex);
+                            var weight = weightAcc.float(i, wIndex);
                             if (Math.isNaN(weight)) throw "weight is NaN";
                             out.writeFloat(weight);
                         }
@@ -483,12 +480,12 @@ class GltfToHmd {
 
                 // for animation length
                 var sampler = anim.samplers[channel.sampler];
-                var accessor = this.getAccessor(sampler.input);
+                var accessor = this.gltf.accessors[sampler.input];
                 if (accessor.max != null) {
-                    end = Math.max(end, accessor.max);
+                    end = Math.max(end, accessor.max[0]);
                 }
                 if (accessor.min != null) {
-                    start = Math.min(start, accessor.min);
+                    start = Math.min(start, accessor.min[0]);
                 }
 
                 //
@@ -670,8 +667,10 @@ class GltfToHmd {
     private function getAccessor(index: Int): AccessorUtil {
         if (index >= 0) {
             return new AccessorUtil(
+                this.gltf,
+                this.bytes,
                 index,
-                this.gltf.accessors[index]
+                this.directory
             );
         }
         return null;
