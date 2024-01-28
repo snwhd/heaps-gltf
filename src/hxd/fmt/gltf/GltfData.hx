@@ -1,4 +1,4 @@
-// package hxd.fmt.gltf;
+package hxd.fmt.gltf;
 
 
 //
@@ -390,8 +390,8 @@
 
  typedef GltfAnimation = {
     // required fields
-    var channels: GltfAnimationChannel;
-    var samples: GltfAnimationSampler;
+    var channels: Array<GltfAnimationChannel>;
+    var samplers: Array<GltfAnimationSampler>;
 
     var name: String;
 }
