@@ -18,7 +18,12 @@ between gltf parsing and hmd output. It is also a bit faster than v1.
 * take these numbers with a grain of salt, the benchmarking is not thorough yet.
 
 In case there are bugs in v2 there is a temporary define to switch back to
-v1, simply add `-D heaps_gltf_use_v1` to you hxml.
+v1, simply add `-D heaps_gltf_use_v1` to you hxml. There are two primary
+features supported in v1 but not v2 at the moment:
+
+* glb files
+* skins
+
 
 ## Usage
 
