@@ -111,7 +111,7 @@ package hxd.fmt.gltf;
 
  typedef GltfBuffer = {
     // required fields
-    var byteLength: Null<Int>;
+    var byteLength: Int;
 
     var uri: String;
     var name: String;
@@ -121,8 +121,8 @@ package hxd.fmt.gltf;
  var GLTF_BUFFER_VIEW_DEFAULT_BYTEOFFSET = 0;
  typedef GltfBufferView = {
     // required fields
-    var buffer: Null<Int>;
-    var byteLength: Null<Int>;
+    var buffer: Int;
+    var byteLength: Int;
 
     var byteOffset: Null<Int>; // = GLTF_BUFFER_VIEW_DEFAULT_BYTEOFFSET
 
@@ -186,7 +186,7 @@ package hxd.fmt.gltf;
 
  typedef GltfSparseAccessorIndices = {
     // required fields
-    var bufferView: Null<Int>;
+    var bufferView: Int;
     var componentType: ComponentType;
 
     var byteOffset: Null<Int>; // TODO = 0;
@@ -195,7 +195,7 @@ package hxd.fmt.gltf;
 
  typedef GltfSparseAccessorValues = {
     // required fields
-    var bufferView: Null<Int>;
+    var bufferView: Int;
 
     var byteOffset: Null<Int>; // TODO = 0;
 }
@@ -203,7 +203,7 @@ package hxd.fmt.gltf;
 
  typedef GltfSparseAccessor = {
     // required fields
-    var count: Null<Int>;
+    var count: Int;
     var indices: GltfSparseAccessorIndices;
     var values: GltfSparseAccessorValues;
 }
@@ -212,7 +212,7 @@ package hxd.fmt.gltf;
  typedef GltfAccessor = {
     // required fields
     var componentType: ComponentType;
-    var count: Null<Int>;
+    var count: Int;
     var type: AccessorType;
 
     // index<gltf.bufferViews>
@@ -236,7 +236,7 @@ package hxd.fmt.gltf;
  typedef GltfMeshPrimitive = {
     // required fields
     // map<attribute, index<gltf.accessor>>
-    var attributes: Map<AttributeName, Int>;
+    var attributes: haxe.DynamicAccess<Int>;
 
     var indices: Null<Int>;
 
@@ -312,7 +312,7 @@ package hxd.fmt.gltf;
 
  typedef GltfTextureInfo = {
     // required fields
-    var index: Null<Int>;
+    var index: Int;
 
     var texCoord: Null<Int>; // TODO = 0;
 }
@@ -332,7 +332,7 @@ package hxd.fmt.gltf;
 
  typedef GltfMaterialNormalTexture = {
     // required fields
-    var index: Null<Int>;
+    var index: Int;
 
     var texCoord: Null<Int>; // TODO = 0;
     var scale: Float;  // TODO = 1.0;
@@ -341,7 +341,7 @@ package hxd.fmt.gltf;
 
  typedef GltfMaterialOcclusionTexture = {
     // required fields
-    var index: Null<Int>;
+    var index: Int;
 
     var texCoord: Null<Int>;   // TODO = 0;
     var strength: Float; // TODO = 1.0;
@@ -374,15 +374,15 @@ package hxd.fmt.gltf;
 
  typedef GltfAnimationChannel = {
     // required fields
-    var sampler: Null<Int>;
+    var sampler: Int;
     var target: GltfAnimationChannelTarget;
 }
 
 
  typedef GltfAnimationSampler = {
     // required fields
-    var input: Null<Int>;
-    var output: Null<Int>;
+    var input: Int;
+    var output: Int;
 
     var string: AnimationInterpolationType; // TODO = LINEAR
 }

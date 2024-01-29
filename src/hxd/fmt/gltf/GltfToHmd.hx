@@ -25,14 +25,17 @@ class GltfToHmd {
             content,
             null // TODO: load binary chunk
         );
-        convert.toHMD();
+        var hmd = convert.toHMD();
+        var o = new hxd.fmt.hmd.Writer(sys.io.File.write("/tmp/avo.hmd"));
+        o.write(hmd);
+        // Sys.println(hxd.fmt.hmd.Dump.toString(hmd));
     }
 
     private static inline var ANIMATION_SAMPLE_RATE = 60.0;
 
     public var filename: String;
     public var directory: String;
-    public var bytes: haxe.io.Bytes;
+    public var bytes: Null<haxe.io.Bytes>;
     public var gltf: GltfData;
 
     public function new(
@@ -157,23 +160,23 @@ class GltfToHmd {
                         out.writeFloat(norAcc.float(i, 0));
                         out.writeFloat(norAcc.float(i, 1));
                         out.writeFloat(norAcc.float(i, 2));
-                    } else {
+                    } else if (generatedNormals != null) {
                         var norm = generatedNormals[Std.int(i/3)];
                         out.writeFloat(norm.x);
                         out.writeFloat(norm.y);
                         out.writeFloat(norm.z);
-                    }
+                    } else throw "missing normals";
 
                     if (tanAcc != null) {
                         out.writeFloat(norAcc.float(i, 0));
                         out.writeFloat(norAcc.float(i, 1));
                         out.writeFloat(norAcc.float(i, 2));
-                    } else {
+                    } else if (generatedTangents != null) {
                         var index = i * 4;
                         out.writeFloat(generatedTangents[index++]);
                         out.writeFloat(generatedTangents[index++]);
                         out.writeFloat(generatedTangents[index]);
-                    }
+                    } else throw "missing tangents";
 
                     if (texAcc != null) {
                         out.writeFloat(texAcc.float(i, 0));
@@ -269,6 +272,7 @@ class GltfToHmd {
                     throw "TODO: nonzero texcoord";
                 }
 
+                if (this.gltf.textures == null) throw "missing requried texture info";
                 var texture = this.gltf.textures[bcTexture.index];
                 if (texture.source == null) throw "TODO";
                 var image = this.gltf.images[texture.source];
@@ -369,14 +373,17 @@ class GltfToHmd {
         var modelCount = hmdModels.length;
         var nodeParents: Map<Int, Int> = [];
         var outputIndices: Map<Int, Int> = [];
+
         for (nodeIndex => node in this.gltf.nodes.keyValueIterator()) {
             if (jointNodes.exists(nodeIndex)) {
                 checkJoints(nodeIndex);
             } else {
                 outputIndices[nodeIndex] = modelCount++;
-                for (child in node.children) {
-                    if (nodeParents.exists(child)) throw "duplicate node parent";
-                    nodeParents[child] = nodeIndex;
+                if (node.children != null) {
+                    for (child in node.children) {
+                        if (nodeParents.exists(child)) throw "duplicate node parent";
+                        nodeParents[child] = nodeIndex;
+                    }
                 }
             }
         }
@@ -429,7 +436,14 @@ class GltfToHmd {
                 }
             }
 
-            hmdModels[outputIndices[nodeIndex]] = hmdModel;
+            var idx = outputIndices[nodeIndex];
+            if (idx == null) {
+                trace(outputIndices);
+                throw 'invalid model index: $nodeIndex';
+            } if (hmdModels[idx] != null) {
+                throw 'overwriting model $idx';
+            }
+            hmdModels[idx] = hmdModel;
         }
 
 
@@ -875,7 +889,38 @@ class GltfToHmd {
     }
 
     private function nodeToPos(node: GltfNode): hxd.fmt.hmd.Data.Position {
-        throw "TODO";
+        var ret = new hxd.fmt.hmd.Data.Position();
+
+        if (node.translation != null) {
+            ret.x = node.translation[0];
+            ret.y = node.translation[1];
+            ret.z = node.translation[2];
+        } else {
+            ret.x = 0.0;
+            ret.y = 0.0;
+            ret.z = 0.0;
+        }
+        if (node.rotation != null) {
+            var posW = node.rotation[3] > 0.0 ? 1.0 : -1.0;
+            ret.qx = node.rotation[0] * posW;
+            ret.qy = node.rotation[1] * posW;
+            ret.qz = node.rotation[2] * posW;
+        } else {
+            ret.qx = 0.0;
+            ret.qy = 0.0;
+            ret.qz = 0.0;
+        }
+        if (node.scale != null) {
+            ret.sx = node.scale[0];
+            ret.sy = node.scale[1];
+            ret.sz = node.scale[2];
+        } else {
+            ret.sx = 1.0;
+            ret.sy = 1.0;
+            ret.sz = 1.0;
+        }
+
+        return ret;
     }
 
     private function buildSkin(
