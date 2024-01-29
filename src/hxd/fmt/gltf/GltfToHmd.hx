@@ -19,9 +19,15 @@ class GltfToHmd {
     public static function main() {
         var path = Sys.args()[0];
         var content = sys.io.File.getContent(path);
+
+        var reldir = haxe.io.Path.directory(path);
+        var pos = reldir.indexOf("res/");
+        reldir = reldir.substr(pos + 4);
+
         var convert = new GltfToHmd(
             haxe.io.Path.withoutDirectory(path),
             haxe.io.Path.directory(path),
+            reldir,
             content,
             null // TODO: load binary chunk
         );
@@ -35,17 +41,20 @@ class GltfToHmd {
 
     public var filename: String;
     public var directory: String;
+    public var reldirectory: String;
     public var bytes: Null<haxe.io.Bytes>;
     public var gltf: GltfData;
 
     public function new(
         filename: String,
-        directory: String,
+        directory: String,    // relative to execution
+        reldirectory: String, // relative to resource dir
         textChunk: String,
         ?bytes: haxe.io.Bytes
     ): Void {
         this.filename = filename;
         this.directory = directory;
+        this.reldirectory = reldirectory;
         this.bytes = bytes;
         this.gltf = haxe.Json.parse(textChunk);
     }
@@ -168,9 +177,9 @@ class GltfToHmd {
                     } else throw "missing normals";
 
                     if (tanAcc != null) {
-                        out.writeFloat(norAcc.float(i, 0));
-                        out.writeFloat(norAcc.float(i, 1));
-                        out.writeFloat(norAcc.float(i, 2));
+                        out.writeFloat(tanAcc.float(i, 0));
+                        out.writeFloat(tanAcc.float(i, 1));
+                        out.writeFloat(tanAcc.float(i, 2));
                     } else if (generatedTangents != null) {
                         var index = i * 4;
                         out.writeFloat(generatedTangents[index++]);
@@ -235,6 +244,10 @@ class GltfToHmd {
 
                 // TODO: ?
 
+                if (prim.material != null) {
+                    mats.push(prim.material);
+                }
+
                 geometry.indexPosition = out.length;
                 geometry.indexCounts = [indices.length];
                 if (geometry.vertexCount > 0x10000) {
@@ -279,8 +292,10 @@ class GltfToHmd {
 
                 if (image.uri != null) {
                     if (StringTools.startsWith(image.uri, "http")) throw "TODO";
+
                     hmdMaterial.diffuseTexture = haxe.io.Path.join([
-                        this.directory,
+                        // needs to be relative to res dir
+                        this.reldirectory,
                         image.uri
                     ]);
                 } else if (image.bufferView != null) {
@@ -338,7 +353,7 @@ class GltfToHmd {
         Util.initializePosition(identityPos);
 
         var root = new hxd.fmt.hmd.Data.Model();
-        root.name = "TODO: mode name";
+        root.name = this.filename;
         root.props = null;
         root.parent = -1;
         root.follow = null;
@@ -394,7 +409,7 @@ class GltfToHmd {
 
             var parent = nodeParents.get(nodeIndex);
             if (parent == null) {
-                parent = -1;
+                parent = 0;
             }
 
             var hmdModel = new hxd.fmt.hmd.Data.Model();
