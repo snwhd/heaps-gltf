@@ -67,15 +67,12 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
         if (directory == null) directory = "res";
         var pos = this.srcPath.indexOf('/$directory/');
         if (pos == -1) {
-            trace(filepath);
-            trace(this.srcPath);
             throw "path not relative to resource dir?";
         }
         var relpath = filepath.substr(pos + directory.length + 2);
 
         // TODO: glb
         var content = this.srcBytes.getString(0, this.srcBytes.length);
-
         var convert = new GltfToHmd(
             filename,
             filepath,

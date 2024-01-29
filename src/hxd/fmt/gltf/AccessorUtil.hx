@@ -84,6 +84,14 @@ class AccessorUtil {
         }
     }
 
+    public inline function copyFloats(out: BytesWriter, i: Int, count=1) {
+        // TODO: only works if stride == 4
+        if (this.acc.componentType != FLOAT) throw "not a float buffer";
+        var pos = this.byteOffset + (i * this.stride);
+        if (pos >= maxPos) throw "out of bounds";
+        out.copyFloats(this.bytes, pos, count);
+    }
+
     public inline function float(i: Int, offset=0): Float {
         if (this.acc.componentType != FLOAT) throw "not a float buffer";
         var pos = this.byteOffset + (i * this.stride) + offset*4;

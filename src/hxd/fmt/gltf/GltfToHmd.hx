@@ -61,7 +61,13 @@ class GltfToHmd {
 
     public function toHMD(): hxd.fmt.hmd.Data.Data {
 
-        var out = new haxe.io.BytesOutput();
+        // var out = new haxe.io.BytesOutput();
+        var sizeEstimate = 0;
+        for (buffer in this.gltf.buffers) {
+            sizeEstimate += buffer.byteLength;
+        }
+        sizeEstimate = Std.int(sizeEstimate * 1.25);
+        var out = new BytesWriter(sizeEstimate, Std.int(sizeEstimate*0.25));
 
         //
         // load geometries
@@ -162,9 +168,7 @@ class GltfToHmd {
                     bounds.addPos(x, y, z);
 
                     if (norAcc != null) {
-                        out.writeFloat(norAcc.float(i, 0));
-                        out.writeFloat(norAcc.float(i, 1));
-                        out.writeFloat(norAcc.float(i, 2));
+                        norAcc.copyFloats(out, i, 3);
                     } else if (generatedNormals != null) {
                         var norm = generatedNormals[Std.int(i/3)];
                         out.writeFloat(norm.x);
@@ -173,9 +177,7 @@ class GltfToHmd {
                     } else throw "missing normals";
 
                     if (tanAcc != null) {
-                        out.writeFloat(tanAcc.float(i, 0));
-                        out.writeFloat(tanAcc.float(i, 1));
-                        out.writeFloat(tanAcc.float(i, 2));
+                        tanAcc.copyFloats(out, i, 3);
                     } else if (generatedTangents != null) {
                         var index = i * 4;
                         out.writeFloat(generatedTangents[index++]);
@@ -184,8 +186,7 @@ class GltfToHmd {
                     } else throw "missing tangents";
 
                     if (texAcc != null) {
-                        out.writeFloat(texAcc.float(i, 0));
-                        out.writeFloat(texAcc.float(i, 1));
+                        texAcc.copyFloats(out, i, 2);
                     } else {
                         out.writeFloat(0.5);
                         out.writeFloat(0.5);
@@ -449,7 +450,6 @@ class GltfToHmd {
 
             var idx = outputIndices[nodeIndex];
             if (idx == null) {
-                trace(outputIndices);
                 throw 'invalid model index: $nodeIndex';
             } if (hmdModels[idx] != null) {
                 throw 'overwriting model $idx';
