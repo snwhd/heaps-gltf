@@ -16,9 +16,9 @@ class Main extends hxd.App {
         this.s3d.camera.target.set(0, 0, 0);
 
         var cache = new h3d.prim.ModelCache();
-        // this.avocado = cache.loadModel(hxd.Res.loader.load("Avocado.gltf").toModel());
+        this.avocado = cache.loadModel(hxd.Res.loader.load("Avocado.gltf").toModel());
         // this.avocado = cache.loadModel(hxd.Res.loader.load("bench/car/ToyCar.gltf").toModel());
-        this.avocado = cache.loadModel(hxd.Res.loader.load("Fox.glb").toModel());
+        // this.avocado = cache.loadModel(hxd.Res.loader.load("Fox.glb").toModel());
         this.avocado.rotate(Math.PI/2, 0, 0);
         this.avocado.getChildAt(0).toMesh().material.shadows = false;
         this.avocado.z = -0.035;

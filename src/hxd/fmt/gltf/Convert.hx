@@ -18,7 +18,6 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
             hxd.fmt.gltf.Parser.parseGLB :
             hxd.fmt.gltf.Parser.parseGLTF;
         super(binary ? "glb" : "gltf", "hmd");
-        if (binary) trace("registering glb");
         #end
     }
 
@@ -38,7 +37,7 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
 
         // Find the path relative to the asset's dir
         // TODO: rename to resdir or something
-        var directory = haxe.macro.Context.definedValue("resourcesPath");
+        var directory = haxe.macro.Compiler.getDefine("resourcesPath");
         if (directory == null) directory = "res";
         var pos = this.srcPath.indexOf('/$directory/');
         if (pos == -1) {
@@ -73,8 +72,6 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
         if (directory == null) directory = "res";
         var pos = this.srcPath.indexOf('/$directory/');
         if (pos == -1) {
-            trace(filepath);
-            trace(this.srcPath);
             throw "path not relative to resource dir?";
         }
         var relpath = filepath.substr(pos + directory.length + 2);
