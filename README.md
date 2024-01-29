@@ -8,6 +8,15 @@ The gltf -> hmd conversion has been signficantly rewritten. The new
 implementation is in `GltfToHmd.hx` and `GltfData.hx` replacing the old
 versions in `Data.hx`, `Parser.hx`, and `HMDOut.hx`.
 
+V2 was primarily created to clean up the code and avoid intermediate steps
+between gltf parsing and hmd output. It is also a bit faster than v1.
+
+* in gltf files without tangents, v2 is ~41% faster than v1.
+* in gltf files with embedded tangents (no need to run mikkt) v2 is ~18% faster.
+* ~65% of time is spent running mikktspace when needed
+* ~13% of time is spent reading input files
+* take these numbers with a grain of salt, the benchmarking is not thorough yet.
+
 In case there are bugs in v2 there is a temporary define to switch back to
 v1, simply add `-D heaps_gltf_use_v1` to you hxml.
 
