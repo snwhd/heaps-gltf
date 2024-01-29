@@ -17,8 +17,7 @@ between gltf parsing and hmd output. It is also a bit faster than v1.
 * ~13% of time is spent reading input files
 * take these numbers with a grain of salt, the benchmarking is not thorough yet.
 
-In case there are bugs in v2 there is a temporary define to switch back to
-v1, simply add `-D heaps_gltf_use_v1` to you hxml. There are two primary
+add `-D heaps_gltf_use_v2` to your hxml to use V2. There are two primary
 features supported in v1 but not v2 at the moment:
 
 * glb files
