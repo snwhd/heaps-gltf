@@ -4,7 +4,7 @@
   "license": "MIT",
   "tags": ["heaps", "gltf"],
   "description": "GLTF parser and HMD conversion for heaps",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "classPath": "src/",
   "contributors": ["nspitko", "snwhd"],
   "dependencies": {

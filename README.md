@@ -2,6 +2,15 @@
 
 Work in Progress. Forked from [cerastes](https://github.com/nspitko/cerastes/tree/main/cerastes/fmt/gltf)
 
+## v2
+
+The gltf -> hmd conversion has been signficantly rewritten. The new
+implementation is in `GltfToHmd.hx` and `GltfData.hx` replacing the old
+versions in `Data.hx`, `Parser.hx`, and `HMDOut.hx`.
+
+In case there are bugs in v2 there is a temporary define to switch back to
+v1, simply add `-D heaps_gltf_use_v1` to you hxml.
+
 ## Usage
 
 Simply include these two lines in your hxml:

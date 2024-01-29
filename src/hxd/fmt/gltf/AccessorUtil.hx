@@ -20,7 +20,7 @@ class AccessorUtil {
     private var byteOffset: Int;
     private var maxPos: Int;
 
-    public function new(
+    public inline function new(
         gltf: GltfData,
         glb: haxe.io.Bytes,
         index: Int,
@@ -67,25 +67,35 @@ class AccessorUtil {
         if (totalSize > bufferView.byteLength) {
             throw "accessor too large";
         }
-        this.byteOffset = bufferView.byteOffset + this.acc.byteOffset;
+
+        var accOffset = 0;
+        if (this.acc.byteOffset != null) {
+            accOffset = this.acc.byteOffset;
+        }
+        var buffOffset = 0;
+        if (bufferView.byteOffset != null) {
+            buffOffset = bufferView.byteOffset;
+        }
+
+        this.byteOffset = buffOffset + accOffset;
         this.maxPos = this.byteOffset + totalSize;
         if (this.maxPos > buffer.byteLength) {
             throw "accessor/bufferview too large";
         }
     }
 
-    public function float(i: Int, offset=0): Float {
+    public inline function float(i: Int, offset=0): Float {
         if (this.acc.componentType != FLOAT) throw "not a float buffer";
         var pos = this.byteOffset + (i * this.stride) + offset*4;
         if (pos >= maxPos) throw "out of bounds";
         return this.bytes.getFloat(pos);
     }
 
-    public function index(i: Int): Int {
+    public inline function index(i: Int): Int {
         return this.int(i);
     }
 
-    public function int(i: Int, offset=0): Int {
+    public inline function int(i: Int, offset=0): Int {
         var pos = this.byteOffset + (i*this.stride) + offset*this.compSize;
         if (pos >= maxPos) throw "out of bounds";
         return switch (this.acc.componentType) {

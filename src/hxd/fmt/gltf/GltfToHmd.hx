@@ -67,8 +67,6 @@ class GltfToHmd {
         // load geometries
         //
 
-        // var primBounds = [];
-        // var dataPositions = [];
         var hmdGeometries: Array<hxd.fmt.hmd.Data.Geometry> = [];
         var geometryMaterials: Array<Array<Int>> = [];
         var meshToGeometry: Array<Array<Int>> = [];
@@ -83,10 +81,8 @@ class GltfToHmd {
                 // TODO: deduplicate primitives?
 
                 var primDataStart = out.length;
-                // var dataPositions.push(out.length);
                 var bounds = new h3d.col.Bounds();
                 bounds.empty();
-                // primBounds.push(bounds);
 
                 var materialIndex = prim.material;
 
@@ -596,16 +592,6 @@ class GltfToHmd {
                 // TODO: warn on missing target?
                 if (channel.target.node == null) continue;
 
-                // // for animation length
-                // var sampler = anim.samplers[channel.sampler];
-                // var accessor = this.gltf.accessors[sampler.input];
-                // if (accessor.max != null) {
-                //     end = Math.max(end, accessor.max[0]);
-                // }
-                // if (accessor.min != null) {
-                //     start = Math.min(start, accessor.min[0]);
-                // }
-
                 //
                 // extract animation curves for each node
                 //
@@ -742,7 +728,7 @@ class GltfToHmd {
         return data;
     }
 
-    private function readWholeBuffer(bufferView: Int): haxe.io.Bytes {
+    private inline function readWholeBuffer(bufferView: Int): haxe.io.Bytes {
         var view = this.gltf.bufferViews[bufferView];
         var buffer = this.gltf.buffers[view.buffer];
         return AccessorUtil.readBuffer(
@@ -752,7 +738,7 @@ class GltfToHmd {
         );
     }
 
-    private function generateNormals(posAcc: AccessorUtil): Array<h3d.Vector> {
+    private inline function generateNormals(posAcc: AccessorUtil): Array<h3d.Vector> {
         if (posAcc.count % 3 != 0) throw "bad position accessor length";
         var numTris = Std.int(posAcc.count / 3);
         var ret = [];
@@ -774,7 +760,7 @@ class GltfToHmd {
         return ret;
     }
 
-    private function generateTangents(
+    private inline function generateTangents(
         posAcc: AccessorUtil,
         norAcc: AccessorUtil,
         texAcc: AccessorUtil,
@@ -865,8 +851,8 @@ class GltfToHmd {
             dataBuffer.addFloat(norAcc.float(vidx, 1));
             dataBuffer.addFloat(norAcc.float(vidx, 2));
 
-            dataBuffer.addFloat(uvAcc.float(vidx, 0));
-            dataBuffer.addFloat(uvAcc.float(vidx, 1));
+            dataBuffer.addFloat(texAcc.float(vidx, 0));
+            dataBuffer.addFloat(texAcc.float(vidx, 1));
         }
 
         dataBuffer.addInt32(indices.length);
@@ -903,7 +889,7 @@ class GltfToHmd {
         #end
     }
 
-    private function nodeToPos(node: GltfNode): hxd.fmt.hmd.Data.Position {
+    private inline function nodeToPos(node: GltfNode): hxd.fmt.hmd.Data.Position {
         var ret = new hxd.fmt.hmd.Data.Position();
 
         if (node.translation != null) {
@@ -945,7 +931,7 @@ class GltfToHmd {
         throw "TODO";
     }
 
-    private function getAccessor(index: Int): AccessorUtil {
+    private inline function getAccessor(index: Int): AccessorUtil {
         if (index >= 0) {
             return new AccessorUtil(
                 this.gltf,
@@ -1000,10 +986,9 @@ class GltfToHmd {
         var w = (nextVal-time)/(nextVal-lastVal);
 
         return { ind0: lastInd, weight: w, ind1:nextInd};
-
     }
 
-    private function getPrimAccessor(
+    private inline function getPrimAccessor(
         prim: GltfMeshPrimitive,
         name: String
     ): AccessorUtil {
