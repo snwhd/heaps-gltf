@@ -56,7 +56,6 @@ class GltfToHmd {
         var hmd = convert.toHMD();
         var o = new hxd.fmt.hmd.Writer(sys.io.File.write("/tmp/avo.hmd"));
         o.write(hmd);
-        // Sys.println(hxd.fmt.hmd.Dump.toString(hmd));
     }
 
     private static inline var ANIMATION_SAMPLE_RATE = 60.0;
@@ -81,6 +80,28 @@ class GltfToHmd {
         this.gltf = haxe.Json.parse(textChunk);
     }
 
+    // Util for reading all the data pointed to by an accessor.
+    private inline function readWholeBuffer(bufferView: Int): haxe.io.Bytes {
+        var view = this.gltf.bufferViews[bufferView];
+        var buffer = this.gltf.buffers[view.buffer];
+        return AccessorUtil.readBuffer(
+            buffer,
+            this.bytes,
+            this.directory
+        );
+    }
+
+    //
+    // Create one `hxd.fmt.hmd.Geometry` for every primitive of every mesh, and
+    // write their postiions, normals, tangents, weights, and joints
+    // and indices to `out`.
+    //
+    // TODO: glTF files may contain multiple primitives with identical lists of
+    //       accessors, meaning they have the same positions, normals, uvs,
+    //       tangents, joints, and weights (but not necessarily the same
+    //       indices or material). There is still some optimization to be done
+    //       for this sceario (which is done in v1).
+    //
     private function writeGeometries(out: BytesWriter): GeometryInfo {
         var hmdGeometries: Array<hxd.fmt.hmd.Data.Geometry> = [];
         var geometryMaterials: Array<Array<Int>> = [];
@@ -92,65 +113,58 @@ class GltfToHmd {
             meshToGeometry.push(meshGeoList);
 
             for (prim in mesh.primitives) {
-
-                // TODO: deduplicate primitives?
+                if (prim.mode != null && prim.mode != TRIANGLES) {
+                    throw "TODO: non-triangle prims";
+                }
 
                 var primDataStart = out.length;
                 var bounds = new h3d.col.Bounds();
                 bounds.empty();
-
-                var materialIndex = prim.material;
-
-                if (prim.mode != null && prim.mode != TRIANGLES) {
-                    throw "TODO: non-triangle prims";
-                }
-                // var mode = if (prim.mode != null)
-                //     ? prim.mode
-                //     : TRIANGLES;
-
-                //
-                // load accessors
-                //
 
                 // TODO: verify accessor types
                 var posAcc = this.getPrimAccessor(prim, "POSITION");
                 var norAcc = this.getPrimAccessor(prim, "NORMAL");
                 var texAcc = this.getPrimAccessor(prim, "TEXCOORD_0");
                 var tanAcc = this.getPrimAccessor(prim, "TANGENT");
-                var indAcc = this.getAccessor(
-                    prim.indices != null ? prim.indices : -1
-                );
                 var jointAcc = this.getPrimAccessor(prim, "JOINTS_0");
                 var weightAcc = this.getPrimAccessor(prim, "WEIGHTS_0");
 
-                if (norAcc == null && indAcc != null) {
-                    throw "generating normals on indexed models is not supported";
+                if (norAcc == null && prim.indices != null) {
+                    throw "generated normals on indexed geos is not supported";
                 }
-                // TODO: check index?
-                // if (jointAcc != weightAcc) {
-                //     throw "joints/weights mismatch";
-                // }
+                if ((jointAcc == null) != (weightAcc == null)) {
+                    throw "joints/weights mismatch";
+                }
 
-                //
-                // generate normals & tangents
-                //
-
+                // indices cannot exceed attributes count, which must all
+                // be equal.
                 var indices: Array<Int> = [];
-                if (indAcc != null) {
+                indices.resize(posAcc.count);
+
+                if (prim.indices != null) {
+                    var indAcc = this.getAccessor(prim.indices);
                     for (i in 0 ... indAcc.count) {
-                        indices.push(indAcc.index(i));
+                        indices[i] = indAcc.index(i);
                     }
                 } else {
+                    // generate default indices
+                    //   > When indices property is not defined, the number of
+                    //   > vertex indices to render is defined by count of
+                    //   > attribute accessors (with the implied values from
+                    //   > range [0..count))
                     for (i in 0 ... posAcc.count) {
-                        indices.push(i);
+                        indices[i] = i;
                     }
                 }
 
+                // generate normals if not provided
                 var generatedNormals = null;
                 if (norAcc == null) {
                     generatedNormals = this.generateNormals(posAcc);
                 }
 
+                // generated tangents if not provided
+                // TODO: option to force generate tangents?
                 var generatedTangents = null;
                 if (tanAcc == null) {
                     generatedTangents = this.generateTangents(
@@ -159,15 +173,12 @@ class GltfToHmd {
                         texAcc,
                         indices
                     );
-                } else {
-                    // TODO: option to force generate tangents
                 }
 
-                //
-                // write data
-                //
-
+                // write data for each vertex
                 for (i in 0 ... posAcc.count) {
+
+                    // positions
                     var x = posAcc.float(i, 0);
                     var y = posAcc.float(i, 1);
                     var z = posAcc.float(i, 2);
@@ -176,6 +187,7 @@ class GltfToHmd {
                     out.writeFloat(z);
                     bounds.addPos(x, y, z);
 
+                    // normals
                     if (norAcc != null) {
                         norAcc.copyFloats(out, i, 3);
                     } else if (generatedNormals != null) {
@@ -185,6 +197,7 @@ class GltfToHmd {
                         out.writeFloat(norm.z);
                     } else throw "missing normals";
 
+                    // tangents
                     if (tanAcc != null) {
                         tanAcc.copyFloats(out, i, 3);
                     } else if (generatedTangents != null) {
@@ -194,6 +207,7 @@ class GltfToHmd {
                         out.writeFloat(generatedTangents[index]);
                     } else throw "missing tangents";
 
+                    // uvs
                     if (texAcc != null) {
                         texAcc.copyFloats(out, i, 2);
                     } else {
@@ -201,18 +215,17 @@ class GltfToHmd {
                         out.writeFloat(0.5);
                     }
 
+                    // joints & weights
                     if (jointAcc != null) {
                         for (jIndex in 0 ... 4) {
                             var joint = jointAcc.int(i, jIndex);
                             if (joint < 0) throw "negative joint index";
                             out.writeByte(joint);
                         }
-                    }
 
-                    // write weights. We only write 3 of the 4 weights here, as the heaps skin
-                    // shader will calculate the fourth as needed with:
-                    // var w = 1 - (x + y + z);
-                    if (weightAcc != null) {
+                        // write weights. We only write 3 of the 4 weights here,
+                        // as the heaps skin shader will calculate the fourth as
+                        // needed with: var w = 1 - (x + y + z);
                         for (wIndex in 0 ... 3) {
                             var weight = weightAcc.float(i, wIndex);
                             if (Math.isNaN(weight)) throw "weight is NaN";
@@ -221,14 +234,13 @@ class GltfToHmd {
                     }
                 }
 
-
-                //
-                // create geometry
-                //
-
+                // create the actual geometry data
                 var geometry = new hxd.fmt.hmd.Data.Geometry();
                 var mats = [];
+
+                // TODO: this is just 0 ... length?
                 meshGeoList.push(hmdGeometries.length);
+
                 geometryMaterials.push(mats);
                 hmdGeometries.push(geometry);
 
@@ -251,7 +263,7 @@ class GltfToHmd {
                 geometry.vertexPosition = primDataStart;
                 geometry.bounds = bounds;
 
-                // TODO: ?
+                // TODO: there was an empty todo around this part in v1. Why?
 
                 if (prim.material != null) {
                     mats.push(prim.material);
@@ -278,10 +290,17 @@ class GltfToHmd {
         };
     }
 
+    //
+    // Create hmd materials 1:1 for glTF materials. glTF supports many material
+    // options that are not in HMD, which only has references to material files.
+    // Adding support for these options (e.g. solid colors, glb embedded
+    // materials, and metallic/roughness) require changes on the heaps side.
+    // Solid color is supported via a macro hack.
+    //
     private function writeMaterials(out: BytesWriter): MaterialInfo {
         var hmdMaterials: Array<hxd.fmt.hmd.Data.Material> = [];
 
-        for (materialIndex => material in this.gltf.materials.keyValueIterator()) {
+        for (matIdx => material in this.gltf.materials.keyValueIterator()) {
             var hmdMaterial = new hxd.fmt.hmd.Data.Material();
             hmdMaterial.name = material.name;
 
@@ -295,13 +314,17 @@ class GltfToHmd {
                     throw "TODO: nonzero texcoord";
                 }
 
-                if (this.gltf.textures == null) throw "missing requried texture info";
+                if (this.gltf.textures == null) {
+                    throw "missing requried texture info";
+                }
                 var texture = this.gltf.textures[bcTexture.index];
                 if (texture.source == null) throw "TODO";
                 var image = this.gltf.images[texture.source];
 
                 if (image.uri != null) {
-                    if (StringTools.startsWith(image.uri, "http")) throw "TODO";
+                    if (StringTools.startsWith(image.uri, "http")) {
+                        throw "TODO";
+                    }
 
                     hmdMaterial.diffuseTexture = haxe.io.Path.join([
                         // needs to be relative to res dir
@@ -318,7 +341,8 @@ class GltfToHmd {
                     // TODO: bundle these and move to the end?
                     // append inline images to binary data
                     var start = out.length;
-                    var length = this.gltf.bufferViews[image.bufferView].byteLength;
+                    var bufferView = this.gltf.bufferViews[image.bufferView];
+                    var length = bufferView.byteLength;
                     hmdMaterial.diffuseTexture = '$ext@$start--$length';
                     out.writeBytes(
                         this.readWholeBuffer(image.bufferView),
@@ -330,7 +354,7 @@ class GltfToHmd {
                     //     buf: image.bufferView.buffer,
                     //     pos: image.bufferView.byteOffset,
                     //     len: image.bufferView.byteLength,
-                    //     mat: materialIndex,
+                    //     mat: matIdx,
                     //     ext: ext,
                     // });
                 } else {
@@ -359,6 +383,9 @@ class GltfToHmd {
         };
     }
 
+    //
+    // Create a root hmd Model, and one for each non-joint gltf node.
+    //
     private function writeModels(
         geoInfo: GeometryInfo,
         out: BytesWriter
@@ -387,20 +414,20 @@ class GltfToHmd {
             }
         }
 
+        // checks that all joint children are also joints.
+        // TODO: support non-joint children
         function checkJoints(i) {
-            if (!jointNodes.exists(i)) throw "joint child is not a joint";
-
             var node = this.gltf.nodes[i];
             if (node.mesh != null) throw "joints with meshes not supported";
-
             for (child in node.children) {
                 checkJoints(child);
             }
         }
 
-        // validate joints and preallocate node indices
         var modelCount = hmdModels.length;
+        // map from a node to its parent
         var nodeParents: Map<Int, Int> = [];
+        // map from a node to its index in hmdModels
         var outputIndices: Map<Int, Int> = [];
 
         for (nodeIndex => node in this.gltf.nodes.keyValueIterator()) {
@@ -479,6 +506,7 @@ class GltfToHmd {
         };
     }
 
+    // Create hmd animation object 1:1 for each gltf animation
     private function writeAnimations(out: BytesWriter): AnimationInfo {
         var hmdAnimations: Array<hxd.fmt.hmd.Data.Animation> = [];
         if (this.gltf.animations != null) for (anim in this.gltf.animations) {
@@ -748,6 +776,8 @@ class GltfToHmd {
         return data;
     }
 
+    // Estimate output size based on sum of buffer lengths, to avoid
+    // allocations during writing.
     private function allocateOutputWriter(): BytesWriter {
         var sizeEstimate = 0;
         for (buffer in this.gltf.buffers) {
@@ -766,16 +796,8 @@ class GltfToHmd {
         return this.buildHMD(geo, mat, model, anim, out);
     }
 
-    private inline function readWholeBuffer(bufferView: Int): haxe.io.Bytes {
-        var view = this.gltf.bufferViews[bufferView];
-        var buffer = this.gltf.buffers[view.buffer];
-        return AccessorUtil.readBuffer(
-            buffer,
-            this.bytes,
-            this.directory
-        );
-    }
-
+    // Generate normals based on given positions.
+    // TODO: support indexed prims
     private inline function generateNormals(posAcc: AccessorUtil): Array<h3d.Vector> {
         if (posAcc.count % 3 != 0) throw "bad position accessor length";
         var numTris = Std.int(posAcc.count / 3);
@@ -798,6 +820,7 @@ class GltfToHmd {
         return ret;
     }
 
+    // Generate tangents with mikktspace.
     private inline function generateTangents(
         posAcc: AccessorUtil,
         norAcc: AccessorUtil,
@@ -805,9 +828,21 @@ class GltfToHmd {
         indices: Array<Int>
     ): Array<Float> {
         #if (hl && !hl_disable_mikkt && (haxe_ver >= "4.0"))
-        //
-        // hashlink - use built in mikktospace
-        //
+        return this.generateTangentsHL(posAcc, norAcc, texAcc, indices);
+        #elseif (sys || nodejs)
+        return this.generateTangentsSystem(posAcc, norAcc, texAcc, indices);
+        #else
+        throw "tangent generation is not supported on this platform";
+        #end
+    }
+
+    #if (hl && !hl_disable_mikkt && (haxe_ver >= "4.0"))
+    private inline function generateTangentsHL(
+        posAcc: AccessorUtil,
+        norAcc: AccessorUtil,
+        texAcc: AccessorUtil,
+        indices: Array<Int>
+    ): Array<Float> {
         if (norAcc == null) throw "TODO: generated normals";
 
         var m = new hl.Format.Mikktspace();
@@ -850,12 +885,17 @@ class GltfToHmd {
             arr[i] = m.tangents[i];
         }
         return arr;
+    }
+    #end
 
-        #elseif (sys || nodejs)
+    #if (sys || nodejs)
+    private inline function generateTangentsSystem(
+        posAcc: AccessorUtil,
+        norAcc: AccessorUtil,
+        texAcc: AccessorUtil,
+        indices: Array<Int>
+    ): Array<Float> {
         //
-        // sys/nodejs - shell out to system mikktspace
-        //
-
         // find location for temporary files
         var tmp = Sys.getEnv("TMPDIR");
         if  (tmp == null) tmp = Sys.getEnv("TMP");
@@ -919,13 +959,8 @@ class GltfToHmd {
         sys.FileSystem.deleteFile(filename);
         sys.FileSystem.deleteFile(outfile);
         return arr;
-
-        #else
-
-        throw "Tangent generation is not supported on this platform";
-
-        #end
     }
+    #end
 
     private inline function nodeToPos(node: GltfNode): hxd.fmt.hmd.Data.Position {
         var ret = new hxd.fmt.hmd.Data.Position();
