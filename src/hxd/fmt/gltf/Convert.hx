@@ -36,8 +36,11 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
         var filepath = haxe.io.Path.directory(this.srcPath);
 
         // Find the path relative to the asset's dir
-        // TODO: rename to resdir or something
+        #if macro
+        var directory = haxe.macro.Context.definedValue("resourcesPath");
+        #else
         var directory = haxe.macro.Compiler.getDefine("resourcesPath");
+        #end
         if (directory == null) directory = "res";
         var pos = this.srcPath.indexOf('/$directory/');
         if (pos == -1) {
@@ -67,8 +70,11 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
         var filepath = haxe.io.Path.directory(this.srcPath);
 
         // Find the path relative to the asset's dir
-        // TODO: rename to resdir or something
+        #if macro
+        var directory = haxe.macro.Context.definedValue("resourcesPath");
+        #else
         var directory = haxe.macro.Compiler.getDefine("resourcesPath");
+        #end
         if (directory == null) directory = "res";
         var pos = this.srcPath.indexOf('/$directory/');
         if (pos == -1) {
