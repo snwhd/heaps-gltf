@@ -13,6 +13,13 @@ typedef NodeAnimationInfo = {
 };
 
 
+typedef GeometryInfo = {
+    var hmdGeometries: Array<hxd.fmt.hmd.Data.Geometry>;
+    var geometryMaterials: Array<Array<Int>>;
+    var meshToGeometry: Array<Array<Int>>;
+};
+
+
 class GltfToHmd {
 
     // TODO: remove me, just for testing
@@ -59,20 +66,7 @@ class GltfToHmd {
         this.gltf = haxe.Json.parse(textChunk);
     }
 
-    public function toHMD(): hxd.fmt.hmd.Data.Data {
-
-        // var out = new haxe.io.BytesOutput();
-        var sizeEstimate = 0;
-        for (buffer in this.gltf.buffers) {
-            sizeEstimate += buffer.byteLength;
-        }
-        sizeEstimate = Std.int(sizeEstimate * 1.25);
-        var out = new BytesWriter(sizeEstimate, Std.int(sizeEstimate*0.25));
-
-        //
-        // load geometries
-        //
-
+    private function writeGeometries(out: BytesWriter): GeometryInfo {
         var hmdGeometries: Array<hxd.fmt.hmd.Data.Geometry> = [];
         var geometryMaterials: Array<Array<Int>> = [];
         var meshToGeometry: Array<Array<Int>> = [];
@@ -262,6 +256,24 @@ class GltfToHmd {
             }
         }
 
+        return {
+            hmdGeometries: hmdGeometries,
+            geometryMaterials: geometryMaterials,
+            meshToGeometry: meshToGeometry,
+        };
+    }
+
+    public function toHMD(): hxd.fmt.hmd.Data.Data {
+
+        // var out = new haxe.io.BytesOutput();
+        var sizeEstimate = 0;
+        for (buffer in this.gltf.buffers) {
+            sizeEstimate += buffer.byteLength;
+        }
+        sizeEstimate = Std.int(sizeEstimate * 1.25);
+        var out = new BytesWriter(sizeEstimate, Std.int(sizeEstimate*0.25));
+
+        var geoInfo = this.writeGeometries(out);
 
         //
         // load materials
@@ -430,11 +442,11 @@ class GltfToHmd {
                     );
                 }
 
-                var geometries = meshToGeometry[node.mesh];
+                var geometries = geoInfo.meshToGeometry[node.mesh];
                 if (geometries.length == 1) {
                     // we can put a single geometry into the node
                     hmdModel.geometry = geometries[0];
-                    hmdModel.materials = geometryMaterials[hmdModel.geometry];
+                    hmdModel.materials = geoInfo.geometryMaterials[hmdModel.geometry];
                 } else for (geometryIndex in geometries) {
                     // model per primitive
                     var primModel = new hxd.fmt.hmd.Data.Model();
@@ -445,7 +457,7 @@ class GltfToHmd {
                     primModel.follow = null;
                     primModel.skin = null;
                     primModel.geometry = geometryIndex;
-                    primModel.materials = geometryMaterials[geometryIndex];
+                    primModel.materials = geoInfo.geometryMaterials[geometryIndex];
                     // TODO: modelCount++ ?
                     hmdModels.push(primModel);
                 }
@@ -724,7 +736,7 @@ class GltfToHmd {
         data.props = null;
         data.models = hmdModels;
         data.materials = hmdMaterials;
-        data.geometries = hmdGeometries;
+        data.geometries = geoInfo.hmdGeometries;
         data.animations = hmdAnimations;
         data.dataPosition = 0;
         data.data = out.getBytes();
