@@ -1,0 +1,5 @@
+*.hl
+.swp
+res/.tmp/
+tmp/
+build/
