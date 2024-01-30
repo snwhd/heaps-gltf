@@ -1,5 +1,5 @@
 *.hl
-.swp
+*.swp
 res/.tmp/
 tmp/
 build/
