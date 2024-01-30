@@ -68,7 +68,7 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
 
         // Find the path relative to the asset's dir
         // TODO: rename to resdir or something
-        var directory = haxe.macro.Context.definedValue("resourcesPath");
+        var directory = haxe.macro.Compiler.getDefine("resourcesPath");
         if (directory == null) directory = "res";
         var pos = this.srcPath.indexOf('/$directory/');
         if (pos == -1) {
