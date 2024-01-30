@@ -10,14 +10,19 @@ typedef NodeAnimationInfo = {
     var translation: Array<Float>;
     var weights: Array<Float>;
     var hmdObject: hxd.fmt.hmd.Data.AnimationObject;
-};
+}
 
 
 typedef GeometryInfo = {
     var hmdGeometries: Array<hxd.fmt.hmd.Data.Geometry>;
     var geometryMaterials: Array<Array<Int>>;
     var meshToGeometry: Array<Array<Int>>;
-};
+}
+
+
+typedef MaterialInfo = {
+    var hmdMaterials: Array<hxd.fmt.hmd.Data.Material>;
+}
 
 
 class GltfToHmd {
@@ -263,25 +268,8 @@ class GltfToHmd {
         };
     }
 
-    public function toHMD(): hxd.fmt.hmd.Data.Data {
-
-        // var out = new haxe.io.BytesOutput();
-        var sizeEstimate = 0;
-        for (buffer in this.gltf.buffers) {
-            sizeEstimate += buffer.byteLength;
-        }
-        sizeEstimate = Std.int(sizeEstimate * 1.25);
-        var out = new BytesWriter(sizeEstimate, Std.int(sizeEstimate*0.25));
-
-        var geoInfo = this.writeGeometries(out);
-
-        //
-        // load materials
-        //
-
+    private function writeMaterials(out: BytesWriter): MaterialInfo {
         var hmdMaterials: Array<hxd.fmt.hmd.Data.Material> = [];
-        // var inlineImages = []; // TODO: remove?
-        // var materials = [];
 
         for (materialIndex => material in this.gltf.materials.keyValueIterator()) {
             var hmdMaterial = new hxd.fmt.hmd.Data.Material();
@@ -356,6 +344,23 @@ class GltfToHmd {
             hmdMaterials.push(hmdMaterial);
         }
 
+        return {
+            hmdMaterials: hmdMaterials,
+        };
+    }
+
+    public function toHMD(): hxd.fmt.hmd.Data.Data {
+
+        // var out = new haxe.io.BytesOutput();
+        var sizeEstimate = 0;
+        for (buffer in this.gltf.buffers) {
+            sizeEstimate += buffer.byteLength;
+        }
+        sizeEstimate = Std.int(sizeEstimate * 1.25);
+        var out = new BytesWriter(sizeEstimate, Std.int(sizeEstimate*0.25));
+
+        var geoInfo = this.writeGeometries(out);
+        var matInfo = this.writeMaterials(out);
 
         //
         // load models
@@ -735,7 +740,7 @@ class GltfToHmd {
 
         data.props = null;
         data.models = hmdModels;
-        data.materials = hmdMaterials;
+        data.materials = matInfo.hmdMaterials;
         data.geometries = geoInfo.hmdGeometries;
         data.animations = hmdAnimations;
         data.dataPosition = 0;
