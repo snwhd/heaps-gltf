@@ -748,15 +748,17 @@ class GltfToHmd {
         return data;
     }
 
-    public function toHMD(): hxd.fmt.hmd.Data.Data {
-        // var out = new haxe.io.BytesOutput();
+    private function allocateOutputWriter(): BytesWriter {
         var sizeEstimate = 0;
         for (buffer in this.gltf.buffers) {
             sizeEstimate += buffer.byteLength;
         }
         sizeEstimate = Std.int(sizeEstimate * 1.25);
-        var out = new BytesWriter(sizeEstimate, Std.int(sizeEstimate*0.25));
+        return new BytesWriter(sizeEstimate, Std.int(sizeEstimate*0.25));
+    }
 
+    public function toHMD(): hxd.fmt.hmd.Data.Data {
+        var out = this.allocateOutputWriter();
         var geo = this.writeGeometries(out);
         var mat = this.writeMaterials(out);
         var model = this.writeModels(geo, out);
