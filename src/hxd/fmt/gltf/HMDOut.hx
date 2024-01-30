@@ -170,9 +170,11 @@ class HMDOut {
                     //outBytes.writeByte(0);
                 }
 
-                // write weights
+                // write weights. We only write 3 of the 4 weights here, as the heaps skin
+                // shader will calculate the fourth as needed with:
+                // var w = 1 - (x + y + z);
                 if (hasWeights) {
-                    for (wInd in 0...4) {
+                    for (wInd in 0...3) {
                         var wVal = Util.getFloat(this.data, weightAcc, i, wInd);
                         if (Math.isNaN(wVal)) throw "invalid weight (NaN)";
                         outBytes.writeFloat(wVal);
@@ -234,9 +236,9 @@ class HMDOut {
 
                 if (accessors[3] != -1) {
                     // Has joint and weight data
-                    stride += 5;
+                    stride += 4;
                     format.push(new GeometryFormat("indexes", DBytes4));
-                    format.push(new GeometryFormat("weights", DVec4));
+                    format.push(new GeometryFormat("weights", DVec3));
                 }
 
                 geo.vertexFormat = hxd.BufferFormat.make(format);
