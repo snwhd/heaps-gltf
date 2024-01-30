@@ -200,8 +200,11 @@ class GltfToHmd {
                         }
                     }
 
+                    // write weights. We only write 3 of the 4 weights here, as the heaps skin
+                    // shader will calculate the fourth as needed with:
+                    // var w = 1 - (x + y + z);
                     if (weightAcc != null) {
-                        for (wIndex in 0 ... 4) {
+                        for (wIndex in 0 ... 3) {
                             var weight = weightAcc.float(i, wIndex);
                             if (Math.isNaN(weight)) throw "weight is NaN";
                             out.writeFloat(weight);
@@ -232,7 +235,7 @@ class GltfToHmd {
                 ];
                 if (jointAcc != null) {
                     format.push(new hxd.fmt.hmd.Data.GeometryFormat("indexes", DBytes4));
-                    format.push(new hxd.fmt.hmd.Data.GeometryFormat("weights", DVec4));
+                    format.push(new hxd.fmt.hmd.Data.GeometryFormat("weights", DVec3));
                 }
 
                 geometry.vertexFormat = hxd.BufferFormat.make(format);
