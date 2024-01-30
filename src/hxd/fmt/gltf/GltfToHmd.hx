@@ -30,6 +30,11 @@ typedef ModelInfo = {
 }
 
 
+typedef AnimationInfo = {
+    var hmdAnimations: Array<hxd.fmt.hmd.Data.Animation>;
+}
+
+
 class GltfToHmd {
 
     // TODO: remove me, just for testing
@@ -474,31 +479,9 @@ class GltfToHmd {
         };
     }
 
-    public function toHMD(): hxd.fmt.hmd.Data.Data {
-
-        // var out = new haxe.io.BytesOutput();
-        var sizeEstimate = 0;
-        for (buffer in this.gltf.buffers) {
-            sizeEstimate += buffer.byteLength;
-        }
-        sizeEstimate = Std.int(sizeEstimate * 1.25);
-        var out = new BytesWriter(sizeEstimate, Std.int(sizeEstimate*0.25));
-
-        var geoInfo = this.writeGeometries(out);
-        var matInfo = this.writeMaterials(out);
-        var modelInfo = this.writeModels(geoInfo, out);
-
-        //
-        // load animations
-        //
-
+    private function writeAnimations(out: BytesWriter): AnimationInfo {
         var hmdAnimations: Array<hxd.fmt.hmd.Data.Animation> = [];
         if (this.gltf.animations != null) for (anim in this.gltf.animations) {
-
-            //
-            // constant data
-            //
-
             var hmdAnimation = new hxd.fmt.hmd.Data.Animation();
             hmdAnimation.name = anim.name;
             hmdAnimation.props = null;
@@ -730,11 +713,18 @@ class GltfToHmd {
             hmdAnimations.push(hmdAnimation);
         }
 
+        return {
+            hmdAnimations: hmdAnimations,
+        };
+    }
 
-        //
-        // build hmd data
-        //
-
+    private function buildHMD(
+        geoInfo: GeometryInfo,
+        matInfo: MaterialInfo,
+        modelInfo: ModelInfo,
+        animInfo: AnimationInfo,
+        bytes: BytesWriter
+    ): hxd.fmt.hmd.Data.Data {
         var data = new hxd.fmt.hmd.Data.Data();
         #if hmd_version
         data.version = Std.parseInt(
@@ -752,10 +742,26 @@ class GltfToHmd {
         data.models = modelInfo.hmdModels;
         data.materials = matInfo.hmdMaterials;
         data.geometries = geoInfo.hmdGeometries;
-        data.animations = hmdAnimations;
+        data.animations = animInfo.hmdAnimations;
         data.dataPosition = 0;
-        data.data = out.getBytes();
+        data.data = bytes.getBytes();
         return data;
+    }
+
+    public function toHMD(): hxd.fmt.hmd.Data.Data {
+        // var out = new haxe.io.BytesOutput();
+        var sizeEstimate = 0;
+        for (buffer in this.gltf.buffers) {
+            sizeEstimate += buffer.byteLength;
+        }
+        sizeEstimate = Std.int(sizeEstimate * 1.25);
+        var out = new BytesWriter(sizeEstimate, Std.int(sizeEstimate*0.25));
+
+        var geo = this.writeGeometries(out);
+        var mat = this.writeMaterials(out);
+        var model = this.writeModels(geo, out);
+        var anim = this.writeAnimations(out);
+        return this.buildHMD(geo, mat, model, anim, out);
     }
 
     private inline function readWholeBuffer(bufferView: Int): haxe.io.Bytes {
