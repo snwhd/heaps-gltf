@@ -7,18 +7,17 @@ typedef ParseFunction = (String, String, haxe.io.Bytes) -> hxd.fmt.gltf.Data;
 @:keep
 class ConvertGLTF2HMD extends hxd.fs.Convert {
 
+    private var binary: Bool;
     private var parseFunc: ParseFunction;
 
     public function new(binary: Bool) {
-        #if heaps_gltf_use_v2
-        if (binary) throw "TODO: support glb";
-        super("gltf", "hmd");
-        #else
+        this.binary = binary;
+        #if !heaps_gltf_use_v2
         this.parseFunc = binary ?
             hxd.fmt.gltf.Parser.parseGLB :
             hxd.fmt.gltf.Parser.parseGLTF;
-        super(binary ? "glb" : "gltf", "hmd");
         #end
+        super(binary ? "glb" : "gltf", "hmd");
     }
 
     override function convert() {
@@ -48,14 +47,22 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
         }
         var relpath = filepath.substr(pos + directory.length + 2);
 
-        // TODO: glb
-        var content = this.srcBytes.getString(0, this.srcBytes.length);
+        var content: String;
+        var bytes: haxe.io.Bytes = null;
+        if (binary) {
+            var glb = new GlbParser(this.srcBytes);
+            content = glb.jsonString;
+            bytes = glb.binaryChunk;
+        } else {
+            content = this.srcBytes.getString(0, this.srcBytes.length);
+        }
+
         var convert = new GltfToHmd(
             filename,
             filepath,
             relpath,
             content,
-            null // TODO: glb
+            bytes
         );
         var hmd = convert.toHMD();
         var out = new haxe.io.BytesOutput();
@@ -102,10 +109,7 @@ class ConvertGLTF2HMD extends hxd.fs.Convert {
     });
     #end
 
-    #if !heaps_gltf_use_v2
-    // TODO: support glb in v2
     static var glbConv = hxd.fs.Convert.register(new ConvertGLTF2HMD(true));
-    #end
     static var gltfConv = hxd.fs.Convert.register(new ConvertGLTF2HMD(false));
 
 }
