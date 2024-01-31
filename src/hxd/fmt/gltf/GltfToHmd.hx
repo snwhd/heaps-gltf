@@ -66,6 +66,10 @@ class GltfToHmd {
     public var bytes: Null<haxe.io.Bytes>;
     public var gltf: GltfData;
 
+    // Keep high precision values.
+    // Might increase animation data size and compressed size.
+    public var highPrecision : Bool = false;
+
     public function new(
         filename: String,
         directory: String,    // relative to execution
@@ -84,7 +88,8 @@ class GltfToHmd {
     private inline function readWholeBuffer(bufferView: Int): haxe.io.Bytes {
         var view = this.gltf.bufferViews[bufferView];
         var buffer = this.gltf.buffers[view.buffer];
-        return AccessorUtil.readBuffer(
+        return AccessorUtil.readBufferView(
+            view,
             buffer,
             this.bytes,
             this.directory
@@ -416,10 +421,10 @@ class GltfToHmd {
 
         // checks that all joint children are also joints.
         // TODO: support non-joint children
-        function checkJoints(i) {
+        function checkJoints(i: Int) {
             var node = this.gltf.nodes[i];
             if (node.mesh != null) throw "joints with meshes not supported";
-            for (child in node.children) {
+            if (node.children != null) for (child in node.children) {
                 checkJoints(child);
             }
         }
@@ -435,11 +440,11 @@ class GltfToHmd {
                 checkJoints(nodeIndex);
             } else {
                 outputIndices[nodeIndex] = modelCount++;
-                if (node.children != null) {
-                    for (child in node.children) {
-                        if (nodeParents.exists(child)) throw "duplicate node parent";
-                        nodeParents[child] = nodeIndex;
-                    }
+            }
+            if (node.children != null) {
+                for (child in node.children) {
+                    if (nodeParents.exists(child)) throw "duplicate node parent";
+                    nodeParents[child] = nodeIndex;
                 }
             }
         }
@@ -466,6 +471,7 @@ class GltfToHmd {
             if (node.mesh != null) {
                 if (node.skin != null) {
                     hmdModel.skin = this.buildSkin(
+                        nodeParents,
                         this.gltf.skins[node.skin],
                         node.name
                     );
@@ -507,7 +513,10 @@ class GltfToHmd {
     }
 
     // Create hmd animation object 1:1 for each gltf animation
-    private function writeAnimations(out: BytesWriter): AnimationInfo {
+    private function writeAnimations(
+        modelInfo: ModelInfo,
+        out: BytesWriter
+    ): AnimationInfo {
         var hmdAnimations: Array<hxd.fmt.hmd.Data.Animation> = [];
         if (this.gltf.animations != null) for (anim in this.gltf.animations) {
             var hmdAnimation = new hxd.fmt.hmd.Data.Animation();
@@ -516,6 +525,7 @@ class GltfToHmd {
             hmdAnimation.sampling = ANIMATION_SAMPLE_RATE;
             hmdAnimation.speed = 1.0;
             hmdAnimation.loop = false;
+            hmdAnimation.objects = [];
 
             //
             // parse data from gltf channels
@@ -614,14 +624,18 @@ class GltfToHmd {
                 return values;
             }
 
-            function newNodeAnimationInfo(target: Int) {
+            function newNodeAnimationInfo(name: String, target: Int) {
+                var anim =  new hxd.fmt.hmd.Data.AnimationObject();
+                anim.flags = new haxe.EnumFlags();
+                anim.name = name;
+                anim.props = [];
                 return {
                     target: target, // TODO: remove target?
                     rotation: null,
                     scale: null,
                     translation: null,
                     weights: null,
-                    hmdObject: new hxd.fmt.hmd.Data.AnimationObject(),
+                    hmdObject: anim,
                 };
             }
 
@@ -632,6 +646,7 @@ class GltfToHmd {
 
                 // TODO: warn on missing target?
                 if (channel.target.node == null) continue;
+                var target = this.gltf.nodes[channel.target.node];
 
                 //
                 // extract animation curves for each node
@@ -642,7 +657,10 @@ class GltfToHmd {
                 var info = nodeAnimationMap.get(nodeIndex);
                 if (info == null) {
                     // create a new info/curve
-                    info = newNodeAnimationInfo(channel.target.node);
+                    info = newNodeAnimationInfo(
+                        target.name,
+                        channel.target.node
+                    );
                     nodeAnimationMap[nodeIndex] = info;
 
                     // save to output object
@@ -685,9 +703,6 @@ class GltfToHmd {
                 }
             }
 
-            // load animation flags
-            hmdAnimation.objects = [];
-
             // load animation data
             var infos = [ for (v in nodeAnimationMap) v ];
 
@@ -695,6 +710,7 @@ class GltfToHmd {
             // write frame data
             //
 
+            hmdAnimation.dataPosition = out.length;
             for (frameIndex in 0 ... hmdAnimation.frames) {
                 for (info in infos) {
 
@@ -792,7 +808,7 @@ class GltfToHmd {
         var geo = this.writeGeometries(out);
         var mat = this.writeMaterials(out);
         var model = this.writeModels(geo, out);
-        var anim = this.writeAnimations(out);
+        var anim = this.writeAnimations(model, out);
         return this.buildHMD(geo, mat, model, anim, out);
     }
 
@@ -997,11 +1013,86 @@ class GltfToHmd {
         return ret;
     }
 
+    private inline function makePosition(m: h3d.Matrix) {
+        var p = new hxd.fmt.hmd.Data.Position();
+        var s = m.getScale();
+        var q = new h3d.Quat();
+
+        q.initRotateMatrix(m);
+        q.normalize();
+        if (q.w < 0) q.negate();
+
+        p.sx = this.round(s.x);
+        p.sy = this.round(s.y);
+        p.sz = this.round(s.z);
+        p.qx = this.round(q.x);
+        p.qy = this.round(q.y);
+        p.qz = this.round(q.z);
+        p.x = this.round(m._41);
+        p.y = this.round(m._42);
+        p.z = this.round(m._43);
+        return p;
+    }
+
+    public inline function round(v:Float) {
+        if (v != v) throw "NaN found";
+        return highPrecision ? v : std.Math.fround(v * 131072) / 131072;
+    }
+
     private function buildSkin(
+        nodeParents: Map<Int, Int>,
         gltfSkin: GltfSkin,
         name: String
     ): hxd.fmt.hmd.Data.Skin {
-        throw "TODO";
+        var hmdSkin = new hxd.fmt.hmd.Data.Skin();
+        hmdSkin.name = (
+            gltfSkin.skeleton == null
+            ? name
+            : this.gltf.nodes[gltfSkin.skeleton].name
+        ) + "_skin";
+        hmdSkin.props = [FourBonesByVertex];
+        hmdSkin.split = null;
+        hmdSkin.joints = [];
+
+        var acc = this.getAccessor(gltfSkin.inverseBindMatrices);
+
+        for (i in 0 ... gltfSkin.joints.length) {
+            var jInd = gltfSkin.joints[i];
+            var jointNode = this.gltf.nodes[jInd];
+
+            var hmdJoint = new hxd.fmt.hmd.Data.SkinJoint();
+            hmdJoint.name = name;
+            hmdJoint.props = null;
+            hmdJoint.position = this.nodeToPos(jointNode);
+            hmdJoint.parent = gltfSkin.joints.indexOf(nodeParents[jInd]);
+            hmdJoint.bind = i;
+
+            var invBind = acc.matrix(i);
+            hmdJoint.transpos = Util.posFromMatrix(invBind);
+
+            // Copied from the FBX loader... Oh no......
+            if (
+                hmdJoint.transpos.sx != 1 ||
+                hmdJoint.transpos.sy != 1 ||
+                hmdJoint.transpos.sz != 1
+            ) {
+                // FIX: the scale is not correctly taken into account,
+                // this formula will extract it and fix things
+                var tmp = Util.posFromMatrix(invBind).toMatrix();
+                tmp.transpose();
+                var s = tmp.getScale();
+                tmp.prependScale(1 / s.x, 1 / s.y, 1 / s.z);
+                tmp.transpose();
+                hmdJoint.transpos = this.makePosition(tmp);
+                hmdJoint.transpos.sx = this.round(s.x);
+                hmdJoint.transpos.sy = this.round(s.y);
+                hmdJoint.transpos.sz = this.round(s.z);
+            }
+
+            hmdSkin.joints.push(hmdJoint);
+        }
+
+        return hmdSkin;
     }
 
     private inline function getAccessor(index: Int): AccessorUtil {
