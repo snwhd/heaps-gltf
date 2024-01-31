@@ -426,6 +426,8 @@ class HMDOut {
             for (curveData in animData.curves) {
                 var animObject = new hxd.fmt.hmd.Data.AnimationObject();
                 animObject.name = curveData.targetName;
+                animObject.flags = new haxe.EnumFlags();
+                animObject.props = [];
 
                 if (curveData.transValues != null) {
                     animObject.flags.set(HasPosition);
