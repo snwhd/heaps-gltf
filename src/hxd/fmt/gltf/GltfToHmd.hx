@@ -1061,7 +1061,7 @@ class GltfToHmd {
             var jointNode = this.gltf.nodes[jInd];
 
             var hmdJoint = new hxd.fmt.hmd.Data.SkinJoint();
-            hmdJoint.name = name;
+            hmdJoint.name = jointNode.name;
             hmdJoint.props = null;
             hmdJoint.position = this.nodeToPos(jointNode);
             hmdJoint.parent = gltfSkin.joints.indexOf(nodeParents[jInd]);
