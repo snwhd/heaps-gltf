@@ -92,7 +92,8 @@ class HMDOut {
                     posAcc,
                     normAcc, // TODO: generated normals
                     uvAcc,
-                    indices
+                    indices,
+                    genNormals
                 );
                 if (generatedTangents == null) {
                     throw "failed to generate tangents";
@@ -672,14 +673,15 @@ class HMDOut {
         posAcc: BuffAccess,
         normAcc: BuffAccess,
         uvAcc: BuffAccess,
-        indices: Array<Int>
+        indices: Array<Int>,
+        genNormals: Array<h3d.Vector>
     ): Array<Float> {
+        if (normAcc == null && genNormals == null) throw "no normals provided";
 
         #if (hl && !hl_disable_mikkt && (haxe_ver >= "4.0"))
         //
         // hashlink - use built in mikktospace
         //
-        if (normAcc == null) throw "TODO: generated normals";
 
         var m = new hl.Format.Mikktspace();
         m.buffer = new hl.Bytes(8 * 4 * indices.length);
@@ -703,9 +705,15 @@ class HMDOut {
             m.buffer[out++] = Util.getFloat(this.data, posAcc, vidx, 1);
             m.buffer[out++] = Util.getFloat(this.data, posAcc, vidx, 2);
 
-            m.buffer[out++] = Util.getFloat(this.data, normAcc, vidx, 0);
-            m.buffer[out++] = Util.getFloat(this.data, normAcc, vidx, 1);
-            m.buffer[out++] = Util.getFloat(this.data, normAcc, vidx, 2);
+            if (normAcc != null) {
+                m.buffer[out++] = Util.getFloat(this.data, normAcc, vidx, 0);
+                m.buffer[out++] = Util.getFloat(this.data, normAcc, vidx, 1);
+                m.buffer[out++] = Util.getFloat(this.data, normAcc, vidx, 2);
+            } else {
+                m.buffer[out++] = genNormals[Std.int(vidx/3)].x;
+                m.buffer[out++] = genNormals[Std.int(vidx/3)].y;
+                m.buffer[out++] = genNormals[Std.int(vidx/3)].z;
+            }
 
             m.buffer[out++] = Util.getFloat(this.data, uvAcc, vidx, 0);
             m.buffer[out++] = Util.getFloat(this.data, uvAcc, vidx, 1);
@@ -756,9 +764,15 @@ class HMDOut {
             dataBuffer.addFloat(Util.getFloat(this.data, posAcc, vidx, 1));
             dataBuffer.addFloat(Util.getFloat(this.data, posAcc, vidx, 2));
 
-            dataBuffer.addFloat(Util.getFloat(this.data, normAcc, vidx, 0));
-            dataBuffer.addFloat(Util.getFloat(this.data, normAcc, vidx, 1));
-            dataBuffer.addFloat(Util.getFloat(this.data, normAcc, vidx, 2));
+            if (normAcc != null) {
+                dataBuffer.addFloat(Util.getFloat(this.data, normAcc, vidx, 0));
+                dataBuffer.addFloat(Util.getFloat(this.data, normAcc, vidx, 1));
+                dataBuffer.addFloat(Util.getFloat(this.data, normAcc, vidx, 2));
+            } else {
+                dataBuffer.addFloat(genNormals[Std.int(vidx/3)].x);
+                dataBuffer.addFloat(genNormals[Std.int(vidx/3)].y);
+                dataBuffer.addFloat(genNormals[Std.int(vidx/3)].z);
+            }
 
             dataBuffer.addFloat(Util.getFloat(this.data, uvAcc, vidx, 0));
             dataBuffer.addFloat(Util.getFloat(this.data, uvAcc, vidx, 1));

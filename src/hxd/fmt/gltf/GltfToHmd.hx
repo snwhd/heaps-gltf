@@ -176,7 +176,8 @@ class GltfToHmd {
                         posAcc,
                         norAcc,
                         texAcc,
-                        indices
+                        indices,
+                        generatedNormals
                     );
                 }
 
@@ -841,12 +842,27 @@ class GltfToHmd {
         posAcc: AccessorUtil,
         norAcc: AccessorUtil,
         texAcc: AccessorUtil,
-        indices: Array<Int>
+        indices: Array<Int>,
+        genNormals: Array<h3d.Vector>
     ): Array<Float> {
+        if (norAcc == null && genNormals == null) throw "no normals provided";
+
         #if (hl && !hl_disable_mikkt && (haxe_ver >= "4.0"))
-        return this.generateTangentsHL(posAcc, norAcc, texAcc, indices);
+        return this.generateTangentsHL(
+            posAcc,
+            norAcc,
+            texAcc,
+            indices,
+            genNormals
+        );
         #elseif (sys || nodejs)
-        return this.generateTangentsSystem(posAcc, norAcc, texAcc, indices);
+        return this.generateTangentsSystem(
+            posAcc,
+            norAcc,
+            texAcc,
+            indices,
+            genNormals
+        );
         #else
         throw "tangent generation is not supported on this platform";
         #end
@@ -857,7 +873,8 @@ class GltfToHmd {
         posAcc: AccessorUtil,
         norAcc: AccessorUtil,
         texAcc: AccessorUtil,
-        indices: Array<Int>
+        indices: Array<Int>,
+        genNormals: Array<h3d.Vector>
     ): Array<Float> {
         if (norAcc == null) throw "TODO: generated normals";
 
@@ -883,9 +900,15 @@ class GltfToHmd {
             m.buffer[out++] = posAcc.float(vidx, 1);
             m.buffer[out++] = posAcc.float(vidx, 2);
 
-            m.buffer[out++] = norAcc.float(vidx, 0);
-            m.buffer[out++] = norAcc.float(vidx, 1);
-            m.buffer[out++] = norAcc.float(vidx, 2);
+            if (norAcc != null) {
+                m.buffer[out++] = norAcc.float(vidx, 0);
+                m.buffer[out++] = norAcc.float(vidx, 1);
+                m.buffer[out++] = norAcc.float(vidx, 2);
+            } else {
+                m.buffer[out++] = genNormals[Std.int(vidx/3)].x;
+                m.buffer[out++] = genNormals[Std.int(vidx/3)].y;
+                m.buffer[out++] = genNormals[Std.int(vidx/3)].z;
+            }
 
             m.buffer[out++] = texAcc.float(vidx, 0);
             m.buffer[out++] = texAcc.float(vidx, 1);
@@ -909,7 +932,8 @@ class GltfToHmd {
         posAcc: AccessorUtil,
         norAcc: AccessorUtil,
         texAcc: AccessorUtil,
-        indices: Array<Int>
+        indices: Array<Int>,
+        genNormals: Array<h3d.Vector>
     ): Array<Float> {
         //
         // find location for temporary files
@@ -941,9 +965,15 @@ class GltfToHmd {
             dataBuffer.addFloat(posAcc.float(vidx, 1));
             dataBuffer.addFloat(posAcc.float(vidx, 2));
 
-            dataBuffer.addFloat(norAcc.float(vidx, 0));
-            dataBuffer.addFloat(norAcc.float(vidx, 1));
-            dataBuffer.addFloat(norAcc.float(vidx, 2));
+            if (norAcc != null) {
+                dataBuffer.addFloat(norAcc.float(vidx, 0));
+                dataBuffer.addFloat(norAcc.float(vidx, 1));
+                dataBuffer.addFloat(norAcc.float(vidx, 2));
+            } else {
+                dataBuffer.addFloat(genNormals[Std.int(vidx/3)].x);
+                dataBuffer.addFloat(genNormals[Std.int(vidx/3)].y);
+                dataBuffer.addFloat(genNormals[Std.int(vidx/3)].z);
+            }
 
             dataBuffer.addFloat(texAcc.float(vidx, 0));
             dataBuffer.addFloat(texAcc.float(vidx, 1));
