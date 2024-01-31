@@ -265,7 +265,7 @@ package hxd.fmt.gltf;
     var joints: Array<Int>;
 
     // index<gltf.accessors>, must be float MAT4
-    var inverseBindMatrices: Array<Int>;
+    var inverseBindMatrices: Int;
 
     // index<gltf.nodes>
     var skeleton: Null<Int>;
