@@ -455,7 +455,9 @@ class GltfToHmd {
             if (jointNodes.exists(nodeIndex)) continue;
 
             var parent = nodeParents.get(nodeIndex);
-            if (parent == null) {
+            if (parent != null) {
+                parent = outputIndices[parent];
+            } else {
                 parent = 0;
             }
 
