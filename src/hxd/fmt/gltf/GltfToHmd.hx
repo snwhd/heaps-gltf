@@ -36,27 +36,6 @@ typedef AnimationInfo = {
 
 class GltfToHmd {
 
-    // TODO: remove me, just for testing
-    public static function main() {
-        var path = Sys.args()[0];
-        var content = sys.io.File.getContent(path);
-
-        var reldir = haxe.io.Path.directory(path);
-        var pos = reldir.indexOf("res/");
-        reldir = reldir.substr(pos + 4);
-
-        var convert = new GltfToHmd(
-            haxe.io.Path.withoutDirectory(path),
-            haxe.io.Path.directory(path),
-            reldir,
-            content,
-            null // TODO: load binary chunk
-        );
-        var hmd = convert.toHMD();
-        var o = new hxd.fmt.hmd.Writer(sys.io.File.write("/tmp/avo.hmd"));
-        o.write(hmd);
-    }
-
     private static inline var ANIMATION_SAMPLE_RATE = 60.0;
 
     public var filename: String;
@@ -125,7 +104,6 @@ class GltfToHmd {
                 var bounds = new h3d.col.Bounds();
                 bounds.empty();
 
-                // TODO: verify accessor types
                 var posAcc = this.getPrimAccessor(prim, "POSITION");
                 var norAcc = this.getPrimAccessor(prim, "NORMAL");
                 var texAcc = this.getPrimAccessor(prim, "TEXCOORD_0");
@@ -268,8 +246,6 @@ class GltfToHmd {
                 geometry.vertexPosition = primDataStart;
                 geometry.bounds = bounds;
 
-                // TODO: there was an empty todo around this part in v1. Why?
-
                 if (prim.material != null) {
                     mats.push(prim.material);
                 }
@@ -323,7 +299,27 @@ class GltfToHmd {
                     throw "missing requried texture info";
                 }
                 var texture = this.gltf.textures[bcTexture.index];
-                if (texture.source == null) throw "TODO";
+                if (texture.source == null) {
+                    // texture defines a pbr texture, but that source is null:
+                    //
+                    // > implementations may render such textures with a
+                    // > predefined placeholder image or being filled with some
+                    // > error color (usually magenta).
+                    //
+
+                    #if !heaps_gltf_disable_material_patch
+                    // solid color textures are only supported if using the
+                    // heaps material patch:
+                    hmdMaterial.diffuseTexture = "#FF00FF";
+                    hmdMaterial.blendMode = None;
+                    hmdMaterials.push(hmdMaterial);
+                    continue;
+                    #else
+                    // solid color not supported - throw
+                    throw "material uses texture with undefined source";
+                    #end
+                }
+
                 var image = this.gltf.images[texture.source];
 
                 if (image.uri != null) {
@@ -379,6 +375,8 @@ class GltfToHmd {
             #end
             }
 
+            // note: this code is duplicated above, at the early return if
+            // texture source is null
             hmdMaterial.blendMode = None;
             hmdMaterials.push(hmdMaterial);
         }
@@ -495,7 +493,6 @@ class GltfToHmd {
                     primModel.skin = null;
                     primModel.geometry = geometryIndex;
                     primModel.materials = geoInfo.geometryMaterials[geometryIndex];
-                    // TODO: modelCount++ ?
                     hmdModels.push(primModel);
                 }
             }
@@ -655,7 +652,6 @@ class GltfToHmd {
                 //
 
                 var targetNodeIndex = channel.target.node;
-                // TODO: mark node as animated (?)
                 var info = nodeAnimationMap.get(targetNodeIndex);
                 if (info == null) {
                     // create a new info/curve
@@ -872,7 +868,7 @@ class GltfToHmd {
         indices: Array<Int>,
         genNormals: Array<h3d.Vector>
     ): Array<Float> {
-        if (norAcc == null) throw "TODO: generated normals";
+        if (norAcc == null && genNormals == null) throw "no normals provided";
 
         var m = new hl.Format.Mikktspace();
         m.buffer = new hl.Bytes(8 * 4 * indices.length);
