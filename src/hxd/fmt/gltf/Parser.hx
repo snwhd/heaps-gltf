@@ -452,7 +452,7 @@ class Parser {
                 var image = srcData.images[imageInd];
 
                 if(image.uri != null) {
-                    matData.colorTex = File(image.uri);
+                    matData.colorTex = File(StringTools.urlDecode(image.uri));
                 } else if(image.bufferView != null) {
                     var ext = switch(image.mimeType) {
                         case "image/png": "PNG";

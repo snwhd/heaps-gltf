@@ -335,7 +335,7 @@ class GltfToHmd {
                     hmdMaterial.diffuseTexture = haxe.io.Path.join([
                         // needs to be relative to res dir
                         this.reldirectory,
-                        image.uri
+                        StringTools.urlDecode(image.uri)
                     ]);
                 } else if (image.bufferView != null) {
                     var ext = switch (image.mimeType) {
