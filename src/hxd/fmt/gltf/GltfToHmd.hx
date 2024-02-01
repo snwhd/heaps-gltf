@@ -4,7 +4,6 @@ import hxd.fmt.gltf.GltfData;
 
 
 typedef NodeAnimationInfo = {
-    var target: Int;
     var rotation: Array<Float>;
     var scale: Array<Float>;
     var translation: Array<Float>;
@@ -627,13 +626,12 @@ class GltfToHmd {
                 return values;
             }
 
-            function newNodeAnimationInfo(name: String, target: Int) {
+            function newNodeAnimationInfo(name: String) {
                 var anim =  new hxd.fmt.hmd.Data.AnimationObject();
                 anim.flags = new haxe.EnumFlags();
                 anim.name = name;
                 anim.props = [];
                 return {
-                    target: target, // TODO: remove target?
                     rotation: null,
                     scale: null,
                     translation: null,
@@ -643,7 +641,8 @@ class GltfToHmd {
             }
 
             // mape from node index to animation values
-            var nodeAnimationMap : Map<Int, NodeAnimationInfo> = [];
+            var nodeAnimationMap: Map<Int, NodeAnimationInfo> = [];
+            var targetOrder: Array<Int> = [];
 
             for (channel in anim.channels) {
 
@@ -655,20 +654,17 @@ class GltfToHmd {
                 // extract animation curves for each node
                 //
 
-                var nodeIndex = channel.target.node;
+                var targetNodeIndex = channel.target.node;
                 // TODO: mark node as animated (?)
-                var info = nodeAnimationMap.get(nodeIndex);
+                var info = nodeAnimationMap.get(targetNodeIndex);
                 if (info == null) {
                     // create a new info/curve
-                    info = newNodeAnimationInfo(
-                        target.name,
-                        channel.target.node
-                    );
-                    nodeAnimationMap[nodeIndex] = info;
+                    info = newNodeAnimationInfo(target.name);
+                    nodeAnimationMap[targetNodeIndex] = info;
+                    targetOrder.push(targetNodeIndex);
 
                     // save to output object
                     hmdAnimation.objects.push(info.hmdObject);
-                    info.hmdObject.name = this.gltf.nodes[channel.target.node].name;
                 }
 
                 switch (channel.target.path) {
@@ -706,16 +702,14 @@ class GltfToHmd {
                 }
             }
 
-            // load animation data
-            var infos = [ for (v in nodeAnimationMap) v ];
-
             //
             // write frame data
             //
 
             hmdAnimation.dataPosition = out.length;
             for (frameIndex in 0 ... hmdAnimation.frames) {
-                for (info in infos) {
+                for (targetNodeIndex in targetOrder) {
+                    var info = nodeAnimationMap[targetNodeIndex];
 
                     if (info.translation != null) {
                         var index = frameIndex * 3;
